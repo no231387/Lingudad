@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PageIntro from '../components/PageIntro';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -28,10 +29,18 @@ function LoginPage() {
   };
 
   return (
-    <section>
+    <section className="page-section auth-page">
+      <PageIntro
+        eyebrow="Welcome back"
+        title="Sign in to Lingua"
+        description="Access your flashcards, decks, study sessions, and imports from one focused workspace."
+      />
+
       <div className="card auth-card">
-        <h2>Login</h2>
-        <p>Sign in to access your flashcards.</p>
+        <div className="section-stack-tight">
+          <h3>Login</h3>
+          <p className="muted-text">Use your account to continue where you left off.</p>
+        </div>
 
         <form className="form-card" onSubmit={handleSubmit}>
           <label>

@@ -64,7 +64,12 @@ function FlashcardForm({
   };
 
   return (
-    <form className={`card form-card ${layout === 'compact' ? 'compact-form-card' : ''} ${className}`.trim()} onSubmit={handleSubmit}>
+    <form className={`card form-card form-shell ${layout === 'compact' ? 'compact-form-card' : ''} ${className}`.trim()} onSubmit={handleSubmit}>
+      <div className="section-stack-tight">
+        <h3>{submitLabel}</h3>
+        <p className="muted-text">Keep your cards clear, consistent, and easy to review later.</p>
+      </div>
+
       <label>
         Word or Phrase
         <input name="wordOrPhrase" value={formData.wordOrPhrase} onChange={handleChange} required />

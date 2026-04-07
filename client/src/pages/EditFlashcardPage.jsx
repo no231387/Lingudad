@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import FlashcardForm from '../components/FlashcardForm';
 import { getDecks, getFlashcard, getOfficialBeginnerDecks, updateFlashcard } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 function EditFlashcardPage() {
   const { id } = useParams();
@@ -41,10 +42,23 @@ function EditFlashcardPage() {
   };
 
   return (
-    <section>
-      <h2>Edit Flashcard</h2>
-      {error ? <p>{error}</p> : null}
-      {card ? <FlashcardForm initialData={card} decks={decks} onSubmit={handleUpdate} submitLabel="Update Flashcard" /> : !error && <p>Loading...</p>}
+    <section className="page-section">
+      <PageIntro
+        eyebrow="Flashcards"
+        title="Edit flashcard"
+        description="Update wording, deck placement, proficiency, and supporting context without changing the underlying card behavior."
+      />
+      {error ? <div className="card error-panel">{error}</div> : null}
+      {card ? (
+        <FlashcardForm initialData={card} decks={decks} onSubmit={handleUpdate} submitLabel="Update Flashcard" />
+      ) : (
+        !error && (
+          <div className="card empty-state compact-empty-state">
+            <h4>Loading flashcard</h4>
+            <p className="muted-text">Fetching the current flashcard details now.</p>
+          </div>
+        )
+      )}
     </section>
   );
 }

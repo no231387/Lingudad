@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import FilterBar from '../components/FilterBar';
 import { getCommunityFlashcards } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 const initialFilters = {
   search: '',
@@ -44,12 +45,11 @@ function CommunityFlashcardsPage() {
 
   return (
     <section className="page-section">
-      <div className="card hero-card flashcards-hero">
-        <div className="flashcards-hero-copy">
-          <h2>Community Flashcards</h2>
-          <p>Explore flashcards created by other users and see who shared each one.</p>
-        </div>
-      </div>
+      <PageIntro
+        eyebrow="Community"
+        title="Browse cards shared by other learners"
+        description="Explore community-created vocabulary, discover how other users organize topics, and borrow inspiration for your own study system."
+      />
 
       <FilterBar filters={filters} onChange={handleFilterChange} onReset={handleReset} />
 
@@ -98,7 +98,12 @@ function CommunityFlashcardsPage() {
         ))}
       </div>
 
-      {flashcards.length === 0 && <p>No community flashcards found yet.</p>}
+      {flashcards.length === 0 && (
+        <div className="empty-state card">
+          <h4>No community flashcards found</h4>
+          <p className="muted-text">Nothing matches these filters yet. Try a broader search or come back after more cards are shared.</p>
+        </div>
+      )}
     </section>
   );
 }

@@ -11,6 +11,7 @@ import {
   updateDeck
 } from '../services/flashcardService';
 import { useAuth } from '../context/AuthContext';
+import PageIntro from '../components/PageIntro';
 
 const initialFormData = { name: '', language: '', description: '' };
 
@@ -189,14 +190,20 @@ function DecksPage() {
   };
 
   return (
-    <section>
-      <div className="card">
-        <h2>Decks</h2>
-        <p>Create and manage decks for your own study collections.</p>
-      </div>
+    <section className="page-section">
+      <PageIntro
+        eyebrow="Decks"
+        title="Organize study collections with intention"
+        description="Create personal decks, curate the cards inside them, and turn any focused topic into a reusable study flow."
+      />
 
-      <form className="card form-card" onSubmit={handleSubmit}>
-        <h3>{editingDeckId ? 'Edit Deck' : 'Create Deck'}</h3>
+      <form className="card form-card form-shell" onSubmit={handleSubmit}>
+        <div className="section-header">
+          <div>
+            <h3>{editingDeckId ? 'Edit deck' : 'Create a new deck'}</h3>
+            <p className="muted-text">Build a study collection with a clear language, purpose, and description.</p>
+          </div>
+        </div>
 
         <label>
           Deck Name
@@ -223,14 +230,17 @@ function DecksPage() {
         </div>
 
         {editingDeckId && (
-          <div className="card">
-            <h4>Add Cards to Deck</h4>
-            <p>Select one or more flashcards to place in this deck.</p>
+          <div className="subsurface-panel">
+            <h4>Add cards to this deck</h4>
+            <p className="muted-text">Search your card library, select what belongs here, and update the deck without leaving the page.</p>
             {deckCardsMessage && <p className="success-text">{deckCardsMessage}</p>}
             {isLoadingFlashcards ? (
               <p className="muted-text">Loading flashcards...</p>
             ) : availableFlashcards.length === 0 ? (
-              <p className="muted-text">No flashcards are available yet.</p>
+              <div className="empty-state compact-empty-state">
+                <h4>No flashcards available yet</h4>
+                <p className="muted-text">Create a few flashcards first, then come back to place them into this deck.</p>
+              </div>
             ) : (
               <>
                 <label>
@@ -306,6 +316,12 @@ function DecksPage() {
             </div>
           </article>
         ))}
+        {decks.length === 0 && (
+          <div className="empty-state card">
+            <h4>No decks yet</h4>
+            <p className="muted-text">Create your first deck to start grouping cards by topic, course, or study goal.</p>
+          </div>
+        )}
       </div>
     </section>
   );

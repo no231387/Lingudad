@@ -6,6 +6,7 @@ import {
   getOfficialBeginnerDecks,
   updateOfficialBeginnerDeck
 } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 const initialFormData = {
   name: '',
@@ -124,14 +125,20 @@ function OfficialBeginnerDecksPage() {
   };
 
   return (
-    <section>
-      <div className="card">
-        <h2>Official Beginner Decks</h2>
-        <p>Browse and manage shared beginner decks for everyone using the app.</p>
-      </div>
+    <section className="page-section">
+      <PageIntro
+        eyebrow="Official decks"
+        title="Shared beginner-friendly learning paths"
+        description="Maintain curated starter decks that everyone in Lingua can browse, open, and learn from."
+      />
 
-      <form className="card form-card" onSubmit={handleSubmit}>
-        <h3>{editingDeckId ? 'Edit Official Beginner Deck' : 'Create Official Beginner Deck'}</h3>
+      <form className="card form-card form-shell" onSubmit={handleSubmit}>
+        <div className="section-header">
+          <div>
+            <h3>{editingDeckId ? 'Edit official beginner deck' : 'Create official beginner deck'}</h3>
+            <p className="muted-text">Keep the shared library polished, understandable, and ready for first-time learners.</p>
+          </div>
+        </div>
 
           <label>
             Deck Name
@@ -186,13 +193,22 @@ function OfficialBeginnerDecksPage() {
             </div>
           </article>
         ))}
+        {decks.length === 0 && (
+          <div className="empty-state card">
+            <h4>No official decks yet</h4>
+            <p className="muted-text">Create one curated beginner deck so the shared library has a starting point.</p>
+          </div>
+        )}
       </div>
 
       <div className="card">
         <h3>{selectedDeckId ? 'Deck Flashcards' : 'Select a Deck'}</h3>
         {selectedDeckId ? (
           flashcards.length === 0 ? (
-            <p>No flashcards are currently attached to this official beginner deck.</p>
+            <div className="empty-state compact-empty-state">
+              <h4>No flashcards attached yet</h4>
+              <p className="muted-text">This shared deck exists, but it does not have any flashcards connected to it yet.</p>
+            </div>
           ) : (
             flashcards.map((flashcard) => (
               <article key={flashcard._id} className="sub-card">
@@ -213,7 +229,10 @@ function OfficialBeginnerDecksPage() {
             ))
           )
         ) : (
-          <p>Choose an official beginner deck to read its flashcards.</p>
+          <div className="empty-state compact-empty-state">
+            <h4>Choose a deck to preview</h4>
+            <p className="muted-text">Select any official beginner deck above to review its flashcards here.</p>
+          </div>
         )}
       </div>
     </section>

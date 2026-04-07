@@ -11,6 +11,7 @@ import {
   removeDuplicateWords,
   resetFlashcardProficiency
 } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 const initialFilters = {
   search: '',
@@ -164,20 +165,21 @@ function FlashcardListPage() {
 
   return (
     <section className="page-section">
-      <div className="card hero-card flashcards-hero">
-        <div className="flashcards-hero-copy">
-          <h2>My Flashcards</h2>
-          <p>Search, add, and manage the flashcards saved to your own account.</p>
-        </div>
-        <div className="flashcards-toolbar">
-          <button type="button" onClick={() => setShowAddForm((current) => !current)}>
-            {showAddForm ? 'Hide Add Form' : 'Add Flashcard'}
-          </button>
-          <button type="button" onClick={handleRemoveDuplicates} className="secondary-button">
-            Remove All Duplicate Words
-          </button>
-        </div>
-      </div>
+      <PageIntro
+        eyebrow="Flashcards"
+        title="A cleaner place to manage every card"
+        description="Search, sort, and refine your flashcard library while keeping creation and maintenance actions close at hand."
+        actions={
+          <>
+            <button type="button" onClick={() => setShowAddForm((current) => !current)}>
+              {showAddForm ? 'Hide add form' : 'Add flashcard'}
+            </button>
+            <button type="button" onClick={handleRemoveDuplicates} className="secondary-button">
+              Remove duplicate words
+            </button>
+          </>
+        }
+      />
 
       <div className="flashcards-workspace">
         <FilterBar filters={filters} onChange={handleFilterChange} onReset={handleReset} />
@@ -205,7 +207,10 @@ function FlashcardListPage() {
               layout="compact"
             />
           ) : (
-            <p className="muted-text">Open the form when you want to add a card. Your filters and results stay right where they are.</p>
+            <div className="empty-state compact-empty-state">
+              <h4>Quick add is collapsed</h4>
+              <p className="muted-text">Open the inline form any time you want to add a card to your collection.</p>
+            </div>
           )}
         </div>
       </div>
@@ -224,7 +229,12 @@ function FlashcardListPage() {
 
       {showFlashcards && <div className="list-grid">{flashcards.map((card) => renderFlashcard(card))}</div>}
 
-      {flashcards.length === 0 && <p>No flashcards found. Try adding a new one.</p>}
+      {flashcards.length === 0 && (
+        <div className="empty-state card">
+          <h4>No flashcards found</h4>
+          <p className="muted-text">Try widening your filters or create a new flashcard to start building your library.</p>
+        </div>
+      )}
     </section>
   );
 }

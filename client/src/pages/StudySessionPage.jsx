@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createStudySession, getDecks, getFlashcards, getTags, reviewFlashcard } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 const customSessionDefaults = {
   deckId: '',
@@ -311,12 +312,11 @@ function StudySessionPage() {
     if (activeCards.length === 0) {
       return (
         <section className="page-section">
-          <div className="card hero-card study-setup-hero">
-            <div>
-              <h2>{activeSessionMeta.title}</h2>
-              <p>{sessionSaved ? 'Your study session is complete and has been saved.' : 'Session complete.'}</p>
-            </div>
-          </div>
+          <PageIntro
+            eyebrow="Study complete"
+            title={activeSessionMeta.title}
+            description={sessionSaved ? 'Your session is complete and has been saved to recent activity.' : 'Session complete.'}
+          />
 
           <div className="stats-grid">
             <article className="card stat-card">
@@ -348,18 +348,19 @@ function StudySessionPage() {
 
     return (
       <section className="page-section">
-        <div className="card hero-card study-setup-hero">
-          <div>
-            <h2>{activeSessionMeta.title}</h2>
-            <p>{activeSessionMeta.description}</p>
-          </div>
-          <div className="study-session-progress">
-            <span className="mapped-column-tag">{activeCards.length} cards left</span>
-            <button type="button" onClick={handleExitSession} className="secondary-button">
-              Exit Session
-            </button>
-          </div>
-        </div>
+        <PageIntro
+          eyebrow="Active study session"
+          title={activeSessionMeta.title}
+          description={activeSessionMeta.description}
+          actions={
+            <div className="study-session-progress">
+              <span className="mapped-column-tag">{activeCards.length} cards left</span>
+              <button type="button" onClick={handleExitSession} className="secondary-button">
+                Exit session
+              </button>
+            </div>
+          }
+        />
 
         <article className="card study-card study-card-large">
           <div className="study-card-content">
@@ -415,12 +416,11 @@ function StudySessionPage() {
 
   return (
     <section className="page-section">
-      <div className="card hero-card study-setup-hero">
-        <div>
-          <h2>Study</h2>
-          <p>Choose a ready-made session or build your own study run from decks, tags, and progress level.</p>
-        </div>
-      </div>
+      <PageIntro
+        eyebrow="Study"
+        title="Review with a calmer, more focused flow"
+        description="Start from a preset, launch a deck session, or build a custom review run based on tags, proficiency, and session size."
+      />
 
       {isLoadingSetup ? (
         <div className="card">
@@ -458,7 +458,10 @@ function StudySessionPage() {
             </div>
             <div className="list-grid study-preset-grid">
               {deckPresets.length === 0 ? (
-                <p className="muted-text">No decks with flashcards yet.</p>
+                <div className="empty-state compact-empty-state">
+                  <h4>No decks ready yet</h4>
+                  <p className="muted-text">Add flashcards to a deck first, then you can launch one-click deck sessions here.</p>
+                </div>
               ) : (
                 deckPresets.map((deck) => (
                   <article key={deck._id} className="card study-preset-card">
@@ -493,7 +496,10 @@ function StudySessionPage() {
             </div>
             <div className="list-grid study-preset-grid">
               {tagPresets.length === 0 ? (
-                <p className="muted-text">No tags with flashcards yet.</p>
+                <div className="empty-state compact-empty-state">
+                  <h4>No tags ready yet</h4>
+                  <p className="muted-text">Once your flashcards include tags, Lingua can build fast tag-based review sessions here.</p>
+                </div>
               ) : (
                 tagPresets.map((tag) => (
                   <article key={tag._id} className="card study-preset-card">

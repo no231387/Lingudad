@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import FlashcardListPage from './pages/FlashcardListPage';
 import CommunityFlashcardsPage from './pages/CommunityFlashcardsPage';
@@ -33,9 +33,11 @@ const storeTheme = (theme) => {
 };
 
 function App() {
+  const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
   const [theme, setTheme] = useState(getStoredTheme);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNavOpen, setIsNavOpen] = useState(false);
   const [profileStats, setProfileStats] = useState({
     cards: 0,
     decks: 0,
@@ -46,6 +48,11 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
     storeTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    setIsNavOpen(false);
+    setIsProfileOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const loadProfileStats = async () => {
@@ -79,177 +86,228 @@ function App() {
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'));
   };
 
+  const navItems = useMemo(
+    () =>
+      isAuthenticated
+        ? [
+            { to: '/', label: 'Home', shortLabel: 'Home' },
+            { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
+            { to: '/official-beginner-decks', label: 'Official Decks', shortLabel: 'Official' },
+            { to: '/flashcards', label: 'Flashcards', shortLabel: 'Cards' },
+            { to: '/community', label: 'Community', shortLabel: 'Community' },
+            { to: '/import', label: 'Import', shortLabel: 'Import' },
+            { to: '/study', label: 'Study', shortLabel: 'Study' }
+          ]
+        : [
+            { to: '/login', label: 'Login', shortLabel: 'Login' },
+            { to: '/register', label: 'Register', shortLabel: 'Register' }
+          ],
+    [isAuthenticated]
+  );
+
+  const currentRouteLabel =
+    navItems.find((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)))?.label ||
+    (isAuthenticated ? 'Workspace' : 'Welcome');
+
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="header-top-row">
-            {user ? <span className="welcome-text">Welcome, {user.username}</span> : <span />}
-            <div className="header-actions">
-              <button type="button" onClick={toggleTheme} className="theme-toggle secondary-button">
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
-              </button>
-              {user && (
-                <div className="profile-menu">
-                  <button
-                    type="button"
-                    onClick={() => setIsProfileOpen((previous) => !previous)}
-                    className="profile-trigger"
-                    aria-expanded={isProfileOpen}
-                    aria-label="Open profile panel"
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true" className="profile-icon">
-                      <path
-                        d="M12 12.2a4.1 4.1 0 1 0-4.1-4.1 4.1 4.1 0 0 0 4.1 4.1Zm0 2c-4.2 0-7.6 2.3-7.6 5.1V21h15.2v-1.7c0-2.8-3.4-5.1-7.6-5.1Z"
-                        fill="currentColor"
-                      />
-                    </svg>
-                  </button>
-                  {isProfileOpen && (
-                    <div className="profile-panel card">
-                      <div className="profile-panel-header">
-                        <div>
-                          <h3>{user.username}</h3>
-                          <p className="muted-text">Signed in account</p>
-                        </div>
-                      </div>
-                      <div className="profile-stats">
-                        <div className="profile-stat">
-                          <span className="profile-stat-value">{profileStats.cards}</span>
-                          <span className="muted-text">Cards</span>
-                        </div>
-                        <div className="profile-stat">
-                          <span className="profile-stat-value">{profileStats.decks}</span>
-                          <span className="muted-text">Decks</span>
-                        </div>
-                        <div className="profile-stat">
-                          <span className="profile-stat-value">{profileStats.studySessions}</span>
-                          <span className="muted-text">Study Sessions</span>
-                        </div>
-                      </div>
-                      <button type="button" onClick={logout} className="secondary-button profile-logout-button">
-                        Logout
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
+      <aside className={`app-sidebar ${isNavOpen ? 'is-open' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="brand-mark" aria-hidden="true">
+            <span className="brand-mark-core">L</span>
+            <span className="brand-mark-ring brand-mark-ring-one" />
+            <span className="brand-mark-ring brand-mark-ring-two" />
+          </div>
+          <div className="brand-lockup">
+            <p className="sidebar-kicker">Simple Practice</p>
+            <h1 className="brand-wordmark">Lingua</h1>
+            <p className="brand-support">Manage decks, flashcards, and study sessions.</p>
+          </div>
+        </div>
+
+        <div className="sidebar-copy">
+          {user && <div className="role-banner">Signed in as {user.username}</div>}
+        </div>
+
+        <nav className="nav-bar" aria-label="Primary">
+          {navItems.map((item) => (
+            <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+              <span className="nav-link-label">{item.label}</span>
+              <span className="nav-link-short">{item.shortLabel}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        {user && (
+          <div className="sidebar-profile">
+            <div className="section-stack-tight">
+              <p className="eyebrow-label">Profile</p>
+              <h3>{user.username}</h3>
+              <p className="muted-text">Current totals</p>
+            </div>
+            <div className="profile-stats">
+              <div className="profile-stat">
+                <span className="profile-stat-value">{profileStats.cards}</span>
+                <span className="muted-text">Cards</span>
+              </div>
+              <div className="profile-stat">
+                <span className="profile-stat-value">{profileStats.decks}</span>
+                <span className="muted-text">Decks</span>
+              </div>
+              <div className="profile-stat">
+                <span className="profile-stat-value">{profileStats.studySessions}</span>
+                <span className="muted-text">Sessions</span>
+              </div>
             </div>
           </div>
-          <h1>LinguaCards</h1>
-          <p>
-          Simple language flashcards for simple practice.
-          </p>
-          {user && (
-            <div className="role-banner">
-              <span className="role-text">Logged in as {user.username}</span>
+        )}
+      </aside>
+
+      <div className="app-main">
+        <header className="topbar card">
+          <div className="topbar-leading">
+            <button
+              type="button"
+              className="nav-toggle secondary-button"
+              onClick={() => setIsNavOpen((previous) => !previous)}
+              aria-expanded={isNavOpen}
+              aria-label="Toggle navigation"
+            >
+              Menu
+            </button>
+            <div>
+              <p className="eyebrow-label">Lingua</p>
+              <h2 className="topbar-title">{currentRouteLabel}</h2>
             </div>
-          )}
-        </div>
-      </header>
+          </div>
 
-      <div className="nav-shell">
-        <nav className="nav-bar">
-          {isAuthenticated ? (
-            <>
-              <NavLink to="/" end>
-                Home
-              </NavLink>
-              <NavLink to="/decks">Decks</NavLink>
-              <NavLink to="/official-beginner-decks">Official Beginner Decks</NavLink>
-              <NavLink to="/flashcards">Flashcards</NavLink>
-              <NavLink to="/community">Community</NavLink>
-              <NavLink to="/import">Import</NavLink>
-              <NavLink to="/study">Study</NavLink>
-            </>
-          ) : (
-            <>
-              <NavLink to="/login">Login</NavLink>
-              <NavLink to="/register">Register</NavLink>
-            </>
-          )}
-        </nav>
+          <div className="header-actions">
+            <button type="button" onClick={toggleTheme} className="secondary-button">
+              {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            </button>
+            {user && (
+              <div className="profile-menu">
+                <button
+                  type="button"
+                  onClick={() => setIsProfileOpen((previous) => !previous)}
+                  className="profile-trigger"
+                  aria-expanded={isProfileOpen}
+                  aria-label="Open profile panel"
+                >
+                  <span className="profile-trigger-name">{user.username.slice(0, 1).toUpperCase()}</span>
+                </button>
+                {isProfileOpen && (
+                  <div className="profile-panel card">
+                    <div className="profile-panel-header">
+                      <div>
+                        <p className="eyebrow-label">Account</p>
+                        <h3>{user.username}</h3>
+                      </div>
+                    </div>
+                    <div className="profile-stats">
+                      <div className="profile-stat">
+                        <span className="profile-stat-value">{profileStats.cards}</span>
+                        <span className="muted-text">Cards</span>
+                      </div>
+                      <div className="profile-stat">
+                        <span className="profile-stat-value">{profileStats.decks}</span>
+                        <span className="muted-text">Decks</span>
+                      </div>
+                      <div className="profile-stat">
+                        <span className="profile-stat-value">{profileStats.studySessions}</span>
+                        <span className="muted-text">Sessions</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={logout} className="secondary-button profile-logout-button">
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        <main className="page-content">
+          <Routes>
+            <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+            <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/flashcards"
+              element={
+                <ProtectedRoute>
+                  <FlashcardListPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/community"
+              element={
+                <ProtectedRoute>
+                  <CommunityFlashcardsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/decks"
+              element={
+                <ProtectedRoute>
+                  <DecksPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/official-beginner-decks"
+              element={
+                <ProtectedRoute>
+                  <OfficialBeginnerDecksPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/add"
+              element={
+                <ProtectedRoute>
+                  <AddFlashcardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import"
+              element={
+                <ProtectedRoute>
+                  <ImportFlashcardsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/edit/:id"
+              element={
+                <ProtectedRoute>
+                  <EditFlashcardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/study"
+              element={
+                <ProtectedRoute>
+                  <StudySessionPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
+          </Routes>
+        </main>
       </div>
-
-      <main className="page-content">
-        <Routes>
-          <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-          <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/flashcards"
-            element={
-              <ProtectedRoute>
-                <FlashcardListPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/community"
-            element={
-              <ProtectedRoute>
-                <CommunityFlashcardsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/decks"
-            element={
-              <ProtectedRoute>
-                <DecksPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/official-beginner-decks"
-            element={
-              <ProtectedRoute>
-                <OfficialBeginnerDecksPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/add"
-            element={
-              <ProtectedRoute>
-                <AddFlashcardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/import"
-            element={
-              <ProtectedRoute>
-                <ImportFlashcardsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/edit/:id"
-            element={
-              <ProtectedRoute>
-                <EditFlashcardPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/study"
-            element={
-              <ProtectedRoute>
-                <StudySessionPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
-        </Routes>
-      </main>
     </div>
   );
 }

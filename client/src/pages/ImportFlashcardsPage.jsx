@@ -9,6 +9,7 @@ import {
   parseImportText,
   validatePreviewRows
 } from '../utils/importUtils';
+import PageIntro from '../components/PageIntro';
 
 const emptyParseResult = {
   delimiter: ',',
@@ -163,13 +164,14 @@ function ImportFlashcardsPage() {
   const totalInvalidRows = previewRows.length - validRows.length;
 
   return (
-    <section className="import-page">
-      <div className="card">
-        <h2>Import Flashcards</h2>
-        <p>Paste CSV or tab-separated text, or upload a file, then preview cards before importing into your own flashcard collection.</p>
-      </div>
+    <section className="page-section import-page">
+      <PageIntro
+        eyebrow="Import"
+        title="Bring in flashcards with confidence"
+        description="Upload or paste structured data, preview the mapping, and import cards into the right deck without guessing what will happen."
+      />
 
-      <div className="card form-card">
+      <div className="card form-card form-shell">
         <label>
           Upload CSV or TXT File
           <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange={handleFileUpload} />
@@ -311,7 +313,7 @@ function ImportFlashcardsPage() {
             </select>
           </label>
 
-          <div className="card">
+          <div className="subsurface-panel">
             <h4>Choose Where Imported Cards Go</h4>
             <div className="selection-list">
               <label className="selection-row">

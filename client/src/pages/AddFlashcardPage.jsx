@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FlashcardForm from '../components/FlashcardForm';
 import { createFlashcard, getDecks, getOfficialBeginnerDecks } from '../services/flashcardService';
+import PageIntro from '../components/PageIntro';
 
 function AddFlashcardPage() {
   const navigate = useNavigate();
@@ -34,9 +35,12 @@ function AddFlashcardPage() {
   };
 
   return (
-    <section>
-      <h2>Add Flashcard</h2>
-      <p>This flashcard will be saved under your account.</p>
+    <section className="page-section">
+      <PageIntro
+        eyebrow="Flashcards"
+        title="Create a new flashcard"
+        description="Add a word, translation, context, and tags so it fits neatly into your study system."
+      />
       <FlashcardForm decks={decks} onSubmit={handleCreate} submitLabel="Create Flashcard" />
     </section>
   );

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PageIntro from '../components/PageIntro';
 
 function RegisterPage() {
   const navigate = useNavigate();
@@ -37,9 +38,18 @@ function RegisterPage() {
   };
 
   return (
-    <section>
+    <section className="page-section auth-page">
+      <PageIntro
+        eyebrow="Create account"
+        title="Start your Lingua workspace"
+        description="Create an account to build decks, save flashcards, import study sets, and track review sessions."
+      />
+
       <div className="card auth-card">
-        <h2>Register</h2>
+        <div className="section-stack-tight">
+          <h3>Register</h3>
+          <p className="muted-text">Set up your account and start building your study library.</p>
+        </div>
 
         <form className="form-card" onSubmit={handleSubmit}>
           <label>

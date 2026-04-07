@@ -3,8 +3,8 @@ function FilterBar({ filters, onChange, onReset }) {
     <section className="card filter-panel">
       <div className="section-header">
         <div>
-          <h3>Filter Flashcards</h3>
-          <p className="muted-text">Narrow your card list by language, deck category, or proficiency level.</p>
+          <h3>Filter results</h3>
+          <p className="muted-text">Narrow the list by keyword, language, category, or proficiency level.</p>
         </div>
       </div>
 
