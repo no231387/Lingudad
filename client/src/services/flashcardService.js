@@ -3,18 +3,43 @@ import axios from 'axios';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 const TOKEN_STORAGE_KEY = 'linguacards_token';
 
+const readStorage = (key) => {
+  try {
+    return localStorage.getItem(key) || '';
+  } catch (error) {
+    console.warn(`Unable to read "${key}" from localStorage:`, error);
+    return '';
+  }
+};
+
+const writeStorage = (key, value) => {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(`Unable to write "${key}" to localStorage:`, error);
+  }
+};
+
+const removeStorage = (key) => {
+  try {
+    localStorage.removeItem(key);
+  } catch (error) {
+    console.warn(`Unable to remove "${key}" from localStorage:`, error);
+  }
+};
+
 const api = axios.create({
   baseURL: API_BASE_URL
 });
 
-export const getStoredToken = () => localStorage.getItem(TOKEN_STORAGE_KEY) || '';
+export const getStoredToken = () => readStorage(TOKEN_STORAGE_KEY);
 
 export const setAuthToken = (token) => {
   if (token) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    writeStorage(TOKEN_STORAGE_KEY, token);
     api.defaults.headers.common.Authorization = `Bearer ${token}`;
   } else {
-    localStorage.removeItem(TOKEN_STORAGE_KEY);
+    removeStorage(TOKEN_STORAGE_KEY);
     delete api.defaults.headers.common.Authorization;
   }
 };

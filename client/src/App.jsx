@@ -15,9 +15,26 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import { getDashboardStats, getDecks, getStudySessions } from './services/flashcardService';
 
+const getStoredTheme = () => {
+  try {
+    return localStorage.getItem('linguacards_theme') || 'light';
+  } catch (error) {
+    console.warn('Unable to read theme from localStorage:', error);
+    return 'light';
+  }
+};
+
+const storeTheme = (theme) => {
+  try {
+    localStorage.setItem('linguacards_theme', theme);
+  } catch (error) {
+    console.warn('Unable to persist theme in localStorage:', error);
+  }
+};
+
 function App() {
   const { isAuthenticated, user, logout } = useAuth();
-  const [theme, setTheme] = useState(() => localStorage.getItem('linguacards_theme') || 'light');
+  const [theme, setTheme] = useState(getStoredTheme);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [profileStats, setProfileStats] = useState({
     cards: 0,
@@ -27,7 +44,7 @@ function App() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('linguacards_theme', theme);
+    storeTheme(theme);
   }, [theme]);
 
   useEffect(() => {
