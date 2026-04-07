@@ -28,6 +28,18 @@ const userSchema = new mongoose.Schema(
         enum: ['listening', 'reading', 'vocabulary', 'kanji', 'speaking']
       }
     ],
+    preferredTopics: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    preferredRegister: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
     dailyGoal: {
       type: Number,
       min: 0,

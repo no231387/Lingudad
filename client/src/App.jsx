@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext';
 import { getDashboardOverview } from './services/flashcardService';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const VocabularyPage = lazy(() => import('./pages/VocabularyPage'));
 const FlashcardListPage = lazy(() => import('./pages/FlashcardListPage'));
 const CommunityFlashcardsPage = lazy(() => import('./pages/CommunityFlashcardsPage'));
 const AddFlashcardPage = lazy(() => import('./pages/AddFlashcardPage'));
@@ -94,6 +95,7 @@ function App() {
       isAuthenticated
         ? [
             { to: '/', label: 'Home', shortLabel: 'Home' },
+            { to: '/vocabulary', label: 'Vocabulary', shortLabel: 'Vocab' },
             { to: '/content', label: 'Content', shortLabel: 'Content' },
             { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
             { to: '/official-beginner-decks', label: 'Official Decks', shortLabel: 'Official' },
@@ -141,6 +143,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage initialOverview={dashboardOverview} onOverviewLoaded={setDashboardOverview} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/vocabulary"
+            element={
+              <ProtectedRoute>
+                <VocabularyPage />
               </ProtectedRoute>
             }
           />

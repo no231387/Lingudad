@@ -10,6 +10,7 @@ const tagRoutes = require('./routes/tagRoutes');
 const studySessionRoutes = require('./routes/studySessionRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const dashboardRoutes = require('./routes/dashboardRoutes');
+const vocabularyRoutes = require('./routes/vocabularyRoutes');
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/study-sessions', studySessionRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/vocabulary', vocabularyRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Route not found.' });

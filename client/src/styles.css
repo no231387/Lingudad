@@ -1190,6 +1190,19 @@ textarea {
   color: var(--heading);
 }
 
+.stacked-detail-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-soft);
+  display: grid;
+  gap: 8px;
+}
+
+.detail-chip-groups {
+  display: grid;
+  gap: 18px;
+}
+
 .auth-page {
   max-width: 860px;
 }

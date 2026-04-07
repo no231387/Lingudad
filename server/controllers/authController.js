@@ -10,6 +10,10 @@ const LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
 const GOALS = new Set(['listening', 'reading', 'vocabulary', 'kanji', 'speaking']);
 
 const normalizeText = (value) => String(value || '').trim();
+const normalizeTextList = (value) => {
+  const rawValues = Array.isArray(value) ? value : [];
+  return [...new Set(rawValues.map((item) => normalizeText(item)).filter(Boolean))];
+};
 
 const normalizeGoals = (value) => {
   const rawGoals = Array.isArray(value) ? value : [];
@@ -22,6 +26,8 @@ const buildUserProfile = (user) => ({
   language: user.language || '',
   level: user.level || '',
   goals: Array.isArray(user.goals) ? user.goals : [],
+  preferredTopics: Array.isArray(user.preferredTopics) ? user.preferredTopics : [],
+  preferredRegister: Array.isArray(user.preferredRegister) ? user.preferredRegister : [],
   dailyGoal: user.dailyGoal ?? null,
   onboardingCompleted: Boolean(user.onboardingCompleted)
 });
@@ -107,6 +113,8 @@ exports.updateCurrentUserProfile = async (req, res) => {
     const language = normalizeText(req.body.language);
     const level = normalizeText(req.body.level).toLowerCase();
     const goals = normalizeGoals(req.body.goals);
+    const preferredTopics = normalizeTextList(req.body.preferredTopics);
+    const preferredRegister = normalizeTextList(req.body.preferredRegister);
     const dailyGoal = req.body.dailyGoal === '' || req.body.dailyGoal === null || req.body.dailyGoal === undefined
       ? null
       : Number(req.body.dailyGoal);
@@ -130,6 +138,8 @@ exports.updateCurrentUserProfile = async (req, res) => {
     req.user.language = language;
     req.user.level = level;
     req.user.goals = goals;
+    req.user.preferredTopics = preferredTopics;
+    req.user.preferredRegister = preferredRegister;
     req.user.dailyGoal = dailyGoal;
     req.user.onboardingCompleted = true;
 
