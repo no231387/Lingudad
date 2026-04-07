@@ -11,6 +11,8 @@ import StudySessionPage from './pages/StudySessionPage';
 import ImportFlashcardsPage from './pages/ImportFlashcardsPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import OnboardingPage from './pages/OnboardingPage';
+import ContentPage from './pages/ContentPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import { getDashboardStats, getDecks, getStudySessions } from './services/flashcardService';
@@ -91,6 +93,7 @@ function App() {
       isAuthenticated
         ? [
             { to: '/', label: 'Home', shortLabel: 'Home' },
+            { to: '/content', label: 'Content', shortLabel: 'Content' },
             { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
             { to: '/official-beginner-decks', label: 'Official Decks', shortLabel: 'Official' },
             { to: '/flashcards', label: 'Flashcards', shortLabel: 'Cards' },
@@ -108,6 +111,15 @@ function App() {
   const currentRouteLabel =
     navItems.find((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)))?.label ||
     (isAuthenticated ? 'Workspace' : 'Welcome');
+  const onboardingRequired = isAuthenticated && user && !user.onboardingCompleted;
+
+  if (onboardingRequired && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
+  if (isAuthenticated && user?.onboardingCompleted && location.pathname === '/onboarding') {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="app-shell">
@@ -233,10 +245,26 @@ function App() {
             <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
             <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
             <Route
+              path="/onboarding"
+              element={
+                <ProtectedRoute>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/"
               element={
                 <ProtectedRoute>
                   <DashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/content"
+              element={
+                <ProtectedRoute>
+                  <ContentPage />
                 </ProtectedRoute>
               }
             />

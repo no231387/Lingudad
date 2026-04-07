@@ -1,6 +1,8 @@
 const Flashcard = require('../models/Flashcard');
 const Deck = require('../models/Deck');
 const Tag = require('../models/Tag');
+const { normalizeSourceFields, SOURCE_TYPES } = require('../services/sourceCatalogService');
+const { upsertProgress } = require('../services/userProgressService');
 
 const REVIEW_RATINGS = new Set(['again', 'good', 'easy']);
 const DUPLICATE_OPTIONS = new Set(['skip', 'import_anyway', 'update_existing']);
@@ -189,15 +191,26 @@ const buildFlashcardPayload = async ({ body, user, keepOwner, currentOwner }) =>
   const tagNames = parseTagNames(body.tagNames || body.tags?.map?.((tag) => tag.name) || body.tags);
   const tags = await getTagsByNames({ tagNames, user });
 
+  const source = normalizeSourceFields({
+    sourceType: body.sourceType,
+    sourceProvider: body.sourceProvider,
+    sourceId: body.sourceId
+  });
+
   return {
     wordOrPhrase: normalizeText(body.wordOrPhrase),
     translation: normalizeText(body.translation),
+    reading: normalizeText(body.reading),
+    meaning: normalizeText(body.meaning) || normalizeText(body.translation),
     owner: keepOwner ? currentOwner : user._id,
     deck: deck?._id || null,
     language: normalizeText(body.language),
     category: deck?.name || normalizeText(body.category) || 'General',
     tags: tags.map((tag) => tag._id),
     exampleSentence: normalizeText(body.exampleSentence),
+    sourceType: source.sourceType,
+    sourceProvider: source.sourceProvider,
+    sourceId: source.sourceId,
     proficiency: parseProficiency(body.proficiency).value ?? 1
   };
 };
@@ -233,12 +246,17 @@ const buildImportPayload = async (row, user, importOptions = {}) => {
   const payload = {
     wordOrPhrase,
     translation,
+    reading: normalizeText(row.reading),
+    meaning: translation,
     owner: user._id,
     deck: deck?._id || null,
     language,
     category: deck?.name || deckName,
     tags: tags.map((tag) => tag._id),
     exampleSentence: '',
+    sourceType: SOURCE_TYPES.USER,
+    sourceProvider: 'user',
+    sourceId: '',
     proficiency: proficiencyResult.value ?? 1
   };
 
@@ -425,6 +443,14 @@ exports.reviewFlashcard = async (req, res) => {
     applyReviewRating(flashcard, rating);
 
     await flashcard.save();
+    await upsertProgress({
+      userId: req.user._id,
+      itemType: 'flashcard',
+      itemId: flashcard._id,
+      correctDelta: rating === 'again' ? 0 : 1,
+      incorrectDelta: rating === 'again' ? 1 : 0
+    });
+
     res.status(200).json(flashcard);
   } catch (error) {
     res.status(400).json({ message: 'Failed to review flashcard.', error: error.message });

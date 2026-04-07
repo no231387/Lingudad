@@ -5,7 +5,8 @@ import {
   getStoredToken,
   loginUser,
   registerUser,
-  setAuthToken
+  setAuthToken,
+  updateCurrentUser
 } from '../services/flashcardService';
 
 const AuthContext = createContext(null);
@@ -64,6 +65,12 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateProfile = async (profileData) => {
+    const { data } = await updateCurrentUser(profileData);
+    setUser(data.user);
+    return data.user;
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -73,6 +80,7 @@ export function AuthProvider({ children }) {
         isAuthenticated: Boolean(user),
         login,
         register,
+        updateProfile,
         logout
       }}
     >

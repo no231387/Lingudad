@@ -11,6 +11,31 @@ const userSchema = new mongoose.Schema(
     passwordHash: {
       type: String,
       required: [true, 'Password hash is required']
+    },
+    language: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    level: {
+      type: String,
+      enum: ['', 'beginner', 'intermediate', 'advanced'],
+      default: ''
+    },
+    goals: [
+      {
+        type: String,
+        enum: ['listening', 'reading', 'vocabulary', 'kanji', 'speaking']
+      }
+    ],
+    dailyGoal: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+    onboardingCompleted: {
+      type: Boolean,
+      default: false
     }
   },
   {

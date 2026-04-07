@@ -3,6 +3,7 @@ import { useState } from 'react';
 const defaultState = {
   wordOrPhrase: '',
   translation: '',
+  reading: '',
   language: '',
   deckId: '',
   category: '',
@@ -19,6 +20,7 @@ const getInitialState = (initialData) => {
   return {
     wordOrPhrase: initialData.wordOrPhrase || '',
     translation: initialData.translation || '',
+    reading: initialData.reading || '',
     language: initialData.language || '',
     deckId: initialData.deck?._id || initialData.deckId || '',
     category: initialData.category || '',
@@ -78,6 +80,11 @@ function FlashcardForm({
       <label>
         Translation
         <input name="translation" value={formData.translation} onChange={handleChange} required />
+      </label>
+
+      <label>
+        Reading
+        <input name="reading" value={formData.reading} onChange={handleChange} placeholder="Optional reading or kana" />
       </label>
 
       <label>

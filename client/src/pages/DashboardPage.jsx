@@ -1,167 +1,216 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getDashboardStats, getDecks, getStudySessions } from '../services/flashcardService';
-import { useAuth } from '../context/AuthContext';
 import PageIntro from '../components/PageIntro';
+import { getDashboardOverview, getDashboardStats } from '../services/flashcardService';
 
 function DashboardPage() {
-  const { user } = useAuth();
   const [stats, setStats] = useState({ total: 0, mastered: 0, newCards: 0 });
-  const [deckCount, setDeckCount] = useState(0);
-  const [sessions, setSessions] = useState([]);
+  const [overview, setOverview] = useState({
+    continueLearning: { sessions: [], savedContent: [] },
+    dailyPractice: { dailyGoal: 0, reviewedToday: 0, remaining: 0 },
+    recommendedContent: [],
+    decks: []
+  });
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const [{ data: statsData }, { data: deckData }, { data: sessionData }] = await Promise.all([
+        const [{ data: statsData }, { data: overviewData }] = await Promise.all([
           getDashboardStats(),
-          getDecks(),
-          getStudySessions()
+          getDashboardOverview()
         ]);
+
         setStats(statsData);
-        setDeckCount(deckData.length);
-        setSessions(sessionData.slice(0, 5));
+        setOverview(overviewData);
       } catch (error) {
-        console.error('Failed to load dashboard stats:', error);
+        console.error('Failed to load dashboard:', error);
       }
     };
 
     loadDashboard();
   }, []);
 
-  const hasCards = stats.total > 0;
-  const hasSessions = sessions.length > 0;
+  const hasSessions = overview.continueLearning.sessions.length > 0;
+  const hasSavedContent = overview.continueLearning.savedContent.length > 0;
+  const hasRecommendedContent = overview.recommendedContent.length > 0;
+  const hasDecks = overview.decks.length > 0;
 
   return (
     <section className="page-section">
       <PageIntro
-        eyebrow={`Home${user?.username ? ` • ${user.username}` : ''}`}
+        eyebrow="Home"
         title="Dashboard"
-        description="Review status, recent sessions, and next actions."
+        description="Continue learning, review daily progress, and open your saved resources."
         actions={
           <>
             <Link to="/study">Start study session</Link>
-            <Link to="/flashcards" className="secondary-button">
-              Manage flashcards
+            <Link to="/content" className="secondary-button">
+              Open content
             </Link>
-          </>
-        }
-        meta={
-          <>
-            <div className="dashboard-access-pill">
-              <strong>Study</strong>
-              <span className="muted-text">
-                {hasCards ? 'Open a session to review your current cards.' : 'Add cards before starting a study session.'}
-              </span>
-            </div>
-            <div className="dashboard-access-pill">
-              <strong>Collection status</strong>
-              <span className="muted-text">
-                {hasCards
-                  ? `${stats.total} cards across ${deckCount} deck${deckCount === 1 ? '' : 's'}.`
-                  : 'No cards or decks yet.'}
-              </span>
-            </div>
           </>
         }
       />
 
       <div className="dashboard-grid">
         <div className="dashboard-primary">
-          <div className="stats-grid stats-grid-compact">
-            <article className="card stat-card">
-              <h3>Flashcards</h3>
-              <p className="stat-number">{stats.total}</p>
-              <p className="muted-text">Cards ready to review</p>
-            </article>
-            <article className="card stat-card">
-              <h3>Mastered</h3>
-              <p className="stat-number">{stats.mastered}</p>
-              <p className="muted-text">Cards at your strongest level</p>
-            </article>
-            <article className="card stat-card">
-              <h3>New</h3>
-              <p className="stat-number">{stats.newCards}</p>
-              <p className="muted-text">Fresh cards still to learn</p>
-            </article>
-            <article className="card stat-card">
-              <h3>Decks</h3>
-              <p className="stat-number">{deckCount}</p>
-              <p className="muted-text">Collections you can jump into</p>
-            </article>
-          </div>
-
-          <div className="card dashboard-sessions-card">
+          <section className="card dashboard-section">
             <div className="section-header">
               <div>
-                <h3>Recent Study Sessions</h3>
-                <p className="muted-text">Completed sessions appear here.</p>
+                <h3>Continue Learning</h3>
+                <p className="muted-text">Recent sessions and saved content.</p>
               </div>
-              <Link className="button-link secondary-button" to="/study">
-                Open study
+            </div>
+
+            <div className="dashboard-split-grid">
+              <div className="subsurface-panel">
+                <div className="section-stack-tight">
+                  <h4>Recent sessions</h4>
+                  <p className="muted-text">Open Study to continue review.</p>
+                </div>
+                {hasSessions ? (
+                  <div className="dashboard-stack-list">
+                    {overview.continueLearning.sessions.map((session) => (
+                      <div key={session._id} className="dashboard-list-row">
+                        <div>
+                          <strong>{session.deck?.name || 'Mixed session'}</strong>
+                          <p className="muted-text">{new Date(session.completedAt).toLocaleString()}</p>
+                        </div>
+                        <span className="mapped-column-tag">{session.reviewedCount} cards</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state compact-empty-state">
+                    <h4>No study sessions</h4>
+                    <p className="muted-text">Sessions appear here after you complete a review round.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="subsurface-panel">
+                <div className="section-stack-tight">
+                  <h4>Saved content</h4>
+                  <p className="muted-text">Open saved media or add a new source.</p>
+                </div>
+                {hasSavedContent ? (
+                  <div className="dashboard-stack-list">
+                    {overview.continueLearning.savedContent.map((item) => (
+                      <div key={item._id} className="dashboard-list-row">
+                        <div>
+                          <strong>{item.title}</strong>
+                          <p className="muted-text">{item.sourceProvider}</p>
+                        </div>
+                        <Link className="button-link secondary-button" to="/content">
+                          Open
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state compact-empty-state">
+                    <h4>No saved content</h4>
+                    <p className="muted-text">Save content on the Content page to keep it here.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="card dashboard-section">
+            <div className="section-header">
+              <div>
+                <h3>Recommended Content</h3>
+                <p className="muted-text">Recent source-backed content for your target language.</p>
+              </div>
+              <Link className="button-link secondary-button" to="/content">
+                View content
               </Link>
             </div>
-            {!hasSessions ? (
-              <div className="empty-state empty-state-emphasis">
-                <h4>No sessions yet</h4>
-                <p className="muted-text">Recent sessions will appear here after you complete a study round.</p>
+
+            {hasRecommendedContent ? (
+              <div className="list-grid">
+                {overview.recommendedContent.map((item) => (
+                  <article key={item._id} className="card content-preview-card">
+                    <div className="section-stack-tight">
+                      <h4>{item.title}</h4>
+                      <p className="muted-text">
+                        {item.language} | {item.sourceProvider} | {item.difficulty || 'No level'}
+                      </p>
+                    </div>
+                    <Link className="button-link" to="/content">
+                      Open content
+                    </Link>
+                  </article>
+                ))}
               </div>
             ) : (
-              sessions.map((session) => (
-                <div key={session._id} className="dashboard-session-row">
-                  <div>
-                    <p>
-                      <strong>{new Date(session.completedAt).toLocaleString()}</strong>
-                    </p>
-                    <p className="muted-text">{session.deck ? session.deck.name : 'Mixed practice session'}</p>
-                  </div>
-                  <span className="mapped-column-tag">
-                    {session.reviewedCount} cards
-                  </span>
-                </div>
-              ))
+              <div className="empty-state">
+                <h4>No recommended content</h4>
+                <p className="muted-text">Add YouTube content for your target language to populate this section.</p>
+              </div>
             )}
-          </div>
+          </section>
         </div>
 
         <aside className="dashboard-secondary">
-          <div className="card dashboard-focus-card">
+          <section className="card dashboard-section">
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Next action</p>
-              <h3>{hasCards ? 'Continue review' : 'Set up your library'}</h3>
+              <p className="eyebrow-label">Daily Practice</p>
+              <h3>{overview.dailyPractice.reviewedToday} reviewed today</h3>
               <p className="muted-text">
-                {hasCards
-                  ? 'Use this area to move from deck management into study.'
-                  : 'Create cards and decks to start using the study tools.'}
+                Goal: {overview.dailyPractice.dailyGoal || 0} | Remaining: {overview.dailyPractice.remaining}
               </p>
             </div>
 
-            <div className="dashboard-guidance-list">
-              <div className="dashboard-guidance-item">
-                <strong>{hasCards ? 'Review cards now' : 'Add your first cards'}</strong>
-                <span className="muted-text">
-                  {hasCards
-                    ? 'Start a study session to review cards that still need repetition.'
-                    : 'Create a small set of cards to begin organizing your library.'}
-                </span>
-              </div>
-              <div className="dashboard-guidance-item">
-                <strong>{deckCount > 0 ? 'Review deck structure' : 'Create a deck'}</strong>
-                <span className="muted-text">
-                  {deckCount > 0
-                    ? 'Use decks to keep cards grouped by topic or lesson.'
-                    : 'Create your first deck to start organizing cards.'}
-                </span>
-              </div>
+            <div className="stats-grid">
+              <article className="card stat-card">
+                <h3>Flashcards</h3>
+                <p className="stat-number">{stats.total}</p>
+                <p className="muted-text">Total cards</p>
+              </article>
+              <article className="card stat-card">
+                <h3>New</h3>
+                <p className="stat-number">{stats.newCards}</p>
+                <p className="muted-text">At level 1</p>
+              </article>
+              <article className="card stat-card">
+                <h3>Mastered</h3>
+                <p className="stat-number">{stats.mastered}</p>
+                <p className="muted-text">At level 5</p>
+              </article>
             </div>
+          </section>
 
-            <div className="page-intro-actions">
-              <Link to={hasCards ? '/study' : '/flashcards'}>{hasCards ? 'Continue studying' : 'Open flashcards'}</Link>
-              <Link to="/decks" className="secondary-button">
-                Review decks
+          <section className="card dashboard-section">
+            <div className="section-header">
+              <div>
+                <h3>Your Decks</h3>
+                <p className="muted-text">Recent decks and current card counts.</p>
+              </div>
+              <Link className="button-link secondary-button" to="/decks">
+                Open decks
               </Link>
             </div>
-          </div>
+
+            {hasDecks ? (
+              <div className="dashboard-stack-list">
+                {overview.decks.map((deck) => (
+                  <div key={deck._id} className="dashboard-list-row">
+                    <div>
+                      <strong>{deck.name}</strong>
+                      <p className="muted-text">{deck.language || 'Language not set'}</p>
+                    </div>
+                    <span className="mapped-column-tag">{deck.flashcardCount} cards</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h4>No decks yet</h4>
+                <p className="muted-text">Create your first deck to organize cards by topic or lesson.</p>
+              </div>
+            )}
+          </section>
         </aside>
       </div>
     </section>

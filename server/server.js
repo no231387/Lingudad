@@ -8,6 +8,8 @@ const authRoutes = require('./routes/authRoutes');
 const deckRoutes = require('./routes/deckRoutes');
 const tagRoutes = require('./routes/tagRoutes');
 const studySessionRoutes = require('./routes/studySessionRoutes');
+const contentRoutes = require('./routes/contentRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 
 dotenv.config();
 
@@ -45,6 +47,8 @@ app.use('/api/flashcards', flashcardRoutes);
 app.use('/api/decks', deckRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/study-sessions', studySessionRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.use('/api', (req, res) => {
   res.status(404).json({ message: 'Route not found.' });

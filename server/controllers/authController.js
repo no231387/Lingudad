@@ -6,6 +6,26 @@ const SALT_ROUNDS = 10;
 
 const getJwtSecret = () => process.env.JWT_SECRET || 'development_jwt_secret_change_me';
 
+const LEVELS = new Set(['beginner', 'intermediate', 'advanced']);
+const GOALS = new Set(['listening', 'reading', 'vocabulary', 'kanji', 'speaking']);
+
+const normalizeText = (value) => String(value || '').trim();
+
+const normalizeGoals = (value) => {
+  const rawGoals = Array.isArray(value) ? value : [];
+  return [...new Set(rawGoals.map((goal) => normalizeText(goal).toLowerCase()).filter((goal) => GOALS.has(goal)))];
+};
+
+const buildUserProfile = (user) => ({
+  _id: user._id,
+  username: user.username,
+  language: user.language || '',
+  level: user.level || '',
+  goals: Array.isArray(user.goals) ? user.goals : [],
+  dailyGoal: user.dailyGoal ?? null,
+  onboardingCompleted: Boolean(user.onboardingCompleted)
+});
+
 const buildAuthResponse = (user) => {
   const token = jwt.sign({ userId: user._id }, getJwtSecret(), {
     expiresIn: '7d'
@@ -13,10 +33,7 @@ const buildAuthResponse = (user) => {
 
   return {
     token,
-    user: {
-      _id: user._id,
-      username: user.username
-    }
+    user: buildUserProfile(user)
   };
 };
 
@@ -81,9 +98,47 @@ exports.loginUser = async (req, res) => {
 
 exports.getCurrentUser = async (req, res) => {
   res.status(200).json({
-    user: {
-      _id: req.user._id,
-      username: req.user.username
-    }
+    user: buildUserProfile(req.user)
   });
+};
+
+exports.updateCurrentUserProfile = async (req, res) => {
+  try {
+    const language = normalizeText(req.body.language);
+    const level = normalizeText(req.body.level).toLowerCase();
+    const goals = normalizeGoals(req.body.goals);
+    const dailyGoal = req.body.dailyGoal === '' || req.body.dailyGoal === null || req.body.dailyGoal === undefined
+      ? null
+      : Number(req.body.dailyGoal);
+
+    if (!language) {
+      return res.status(400).json({ message: 'Language is required.' });
+    }
+
+    if (!LEVELS.has(level)) {
+      return res.status(400).json({ message: 'Level must be beginner, intermediate, or advanced.' });
+    }
+
+    if (goals.length === 0) {
+      return res.status(400).json({ message: 'Select at least one learning goal.' });
+    }
+
+    if (dailyGoal !== null && (!Number.isInteger(dailyGoal) || dailyGoal < 0)) {
+      return res.status(400).json({ message: 'Daily goal must be a whole number.' });
+    }
+
+    req.user.language = language;
+    req.user.level = level;
+    req.user.goals = goals;
+    req.user.dailyGoal = dailyGoal;
+    req.user.onboardingCompleted = true;
+
+    await req.user.save();
+
+    res.status(200).json({
+      user: buildUserProfile(req.user)
+    });
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to update profile.', error: error.message });
+  }
 };

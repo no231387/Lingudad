@@ -12,6 +12,16 @@ const flashcardSchema = new mongoose.Schema(
       required: [true, 'Translation is required'],
       trim: true
     },
+    reading: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    meaning: {
+      type: String,
+      default: '',
+      trim: true
+    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -39,6 +49,21 @@ const flashcardSchema = new mongoose.Schema(
       }
     ],
     exampleSentence: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    sourceType: {
+      type: String,
+      enum: ['dictionary', 'sentence', 'media', 'user'],
+      default: 'user'
+    },
+    sourceProvider: {
+      type: String,
+      default: 'user',
+      trim: true
+    },
+    sourceId: {
       type: String,
       default: '',
       trim: true
