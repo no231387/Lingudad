@@ -345,20 +345,19 @@ function StudySessionPage() {
 
     return (
       <section className="page-section">
-        <PageIntro
-          eyebrow="Active study session"
-          title={activeSessionMeta.title}
-          description={activeSessionMeta.description}
-          className="page-intro-compact study-session-intro"
-          actions={
-            <div className="study-session-progress">
-              <span className="mapped-column-tag">{activeCards.length} in queue</span>
-              <button type="button" onClick={handleExitSession} className="secondary-button">
-                Exit session
-              </button>
-            </div>
-          }
-        />
+        <div className="card study-session-banner">
+          <div className="study-session-banner-copy">
+            <p className="eyebrow-label">Active study session</p>
+            <h2>{activeSessionMeta.title}</h2>
+            <p className="muted-text">{activeSessionMeta.description}</p>
+          </div>
+          <div className="study-session-progress">
+            <span className="mapped-column-tag">{activeCards.length} in queue</span>
+            <button type="button" onClick={handleExitSession} className="secondary-button">
+              Exit session
+            </button>
+          </div>
+        </div>
 
         <article className="card study-card study-card-large study-session-card">
           <div className="study-card-content">
@@ -389,6 +388,7 @@ function StudySessionPage() {
                 ) : null}
                 <div className="study-review-panel">
                   <p className="study-review-label">How did this review feel?</p>
+                  <p className="muted-text study-review-hint">Again keeps this card in the session and brings it back soon.</p>
                   <div className="study-review-actions">
                     <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
                       Again

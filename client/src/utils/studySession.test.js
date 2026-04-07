@@ -2,13 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { updateStudyQueue } from './studySession.js';
 
-test('requeues the current card at the end when rating is again', () => {
+test('requeues the current card near the front when rating is again', () => {
   const cards = [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }];
   const result = updateStudyQueue(cards, 0, 'again');
 
   assert.deepEqual(
     result.cards.map((card) => card._id),
     ['b', 'c', 'a']
+  );
+  assert.equal(result.nextIndex, 0);
+});
+
+test('requeues again cards after a short delay rather than at the very end for larger queues', () => {
+  const cards = [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }, { _id: 'd' }, { _id: 'e' }];
+  const result = updateStudyQueue(cards, 0, 'again');
+
+  assert.deepEqual(
+    result.cards.map((card) => card._id),
+    ['b', 'c', 'a', 'd', 'e']
   );
   assert.equal(result.nextIndex, 0);
 });
