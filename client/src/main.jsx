@@ -47,7 +47,18 @@ class AppErrorBoundary extends React.Component {
   }
 }
 
-const rootElement = document.getElementById('root');
+const renderBootstrapError = (error) => {
+  const message = String(error?.stack || error?.message || error);
+  const rootElement = document.getElementById('root') || document.body;
+
+  rootElement.innerHTML = `
+    <div style="padding:2rem;font-family:'Segoe UI',sans-serif;color:#1f2937;">
+      <h1 style="margin-bottom:0.75rem;">Frontend bootstrap error</h1>
+      <p style="margin-bottom:0.75rem;">The app failed before React could finish mounting.</p>
+      <pre style="white-space:pre-wrap;background:#f3f4f6;border:1px solid #d1d5db;border-radius:12px;padding:1rem;">${message}</pre>
+    </div>
+  `;
+};
 
 window.addEventListener('error', (event) => {
   console.error('Unhandled window error:', event.error || event.message);
@@ -57,14 +68,33 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled promise rejection:', event.reason);
 });
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    <AppErrorBoundary>
-      <AuthProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </AuthProvider>
-    </AppErrorBoundary>
-  </React.StrictMode>
-);
+const mountApp = () => {
+  try {
+    const rootElement = document.getElementById('root');
+
+    if (!rootElement) {
+      throw new Error('Missing #root element in index.html.');
+    }
+
+    ReactDOM.createRoot(rootElement).render(
+      <React.StrictMode>
+        <AppErrorBoundary>
+          <AuthProvider>
+            <BrowserRouter>
+              <App />
+            </BrowserRouter>
+          </AuthProvider>
+        </AppErrorBoundary>
+      </React.StrictMode>
+    );
+  } catch (error) {
+    console.error('Frontend bootstrap failed:', error);
+    renderBootstrapError(error);
+  }
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountApp, { once: true });
+} else {
+  mountApp();
+}
