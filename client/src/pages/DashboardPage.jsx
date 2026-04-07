@@ -1,34 +1,40 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
-import { getDashboardOverview, getDashboardStats } from '../services/flashcardService';
+import { getDashboardOverview } from '../services/flashcardService';
 
-function DashboardPage() {
+const createDefaultOverview = () => ({
+  stats: { total: 0, mastered: 0, newCards: 0 },
+  continueLearning: { sessions: [], savedContent: [] },
+  dailyPractice: { dailyGoal: 0, reviewedToday: 0, remaining: 0 },
+  recommendedContent: [],
+  decks: []
+});
+
+function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
   const [stats, setStats] = useState({ total: 0, mastered: 0, newCards: 0 });
-  const [overview, setOverview] = useState({
-    continueLearning: { sessions: [], savedContent: [] },
-    dailyPractice: { dailyGoal: 0, reviewedToday: 0, remaining: 0 },
-    recommendedContent: [],
-    decks: []
-  });
+  const [overview, setOverview] = useState(initialOverview || createDefaultOverview());
 
   useEffect(() => {
+    if (initialOverview) {
+      setOverview(initialOverview);
+      setStats(initialOverview.stats || { total: 0, mastered: 0, newCards: 0 });
+      return;
+    }
+
     const loadDashboard = async () => {
       try {
-        const [{ data: statsData }, { data: overviewData }] = await Promise.all([
-          getDashboardStats(),
-          getDashboardOverview()
-        ]);
-
-        setStats(statsData);
+        const { data: overviewData } = await getDashboardOverview();
+        setStats(overviewData.stats || { total: 0, mastered: 0, newCards: 0 });
         setOverview(overviewData);
+        onOverviewLoaded?.(overviewData);
       } catch (error) {
         console.error('Failed to load dashboard:', error);
       }
     };
 
     loadDashboard();
-  }, []);
+  }, [initialOverview, onOverviewLoaded]);
 
   const hasSessions = overview.continueLearning.sessions.length > 0;
   const hasSavedContent = overview.continueLearning.savedContent.length > 0;

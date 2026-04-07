@@ -14,7 +14,7 @@ exports.getDashboardOverview = async (req, res) => {
     const today = startOfToday();
     const userId = req.user._id;
 
-    const [decks, sessions, recommendedContent, savedContent] = await Promise.all([
+    const [decks, sessions, recommendedContent, savedContent, totalCards, masteredCards, newCards] = await Promise.all([
       Deck.find({ owner: userId }).sort({ updatedAt: -1 }).limit(4),
       StudySession.find({ owner: userId }).populate({ path: 'deck', select: 'name language' }).sort({ completedAt: -1 }).limit(3),
       LearningContent.find({
@@ -24,7 +24,10 @@ exports.getDashboardOverview = async (req, res) => {
       })
         .sort({ createdAt: -1 })
         .limit(4),
-      LearningContent.find({ savedBy: userId }).sort({ updatedAt: -1 }).limit(2)
+      LearningContent.find({ savedBy: userId }).sort({ updatedAt: -1 }).limit(2),
+      Flashcard.countDocuments({ owner: userId }),
+      Flashcard.countDocuments({ owner: userId, proficiency: 5 }),
+      Flashcard.countDocuments({ owner: userId, proficiency: 1 })
     ]);
 
     const deckIds = decks.map((deck) => deck._id);
@@ -41,6 +44,11 @@ exports.getDashboardOverview = async (req, res) => {
     const dailyGoal = req.user.dailyGoal || 0;
 
     res.status(200).json({
+      stats: {
+        total: totalCards,
+        mastered: masteredCards,
+        newCards
+      },
       continueLearning: {
         sessions,
         savedContent

@@ -77,15 +77,13 @@ const mountApp = () => {
     }
 
     ReactDOM.createRoot(rootElement).render(
-      <React.StrictMode>
-        <AppErrorBoundary>
-          <AuthProvider>
-            <BrowserRouter>
-              <App />
-            </BrowserRouter>
-          </AuthProvider>
-        </AppErrorBoundary>
-      </React.StrictMode>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </AuthProvider>
+      </AppErrorBoundary>
     );
   } catch (error) {
     console.error('Frontend bootstrap failed:', error);

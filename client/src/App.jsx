@@ -1,21 +1,22 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import DashboardPage from './pages/DashboardPage';
-import FlashcardListPage from './pages/FlashcardListPage';
-import CommunityFlashcardsPage from './pages/CommunityFlashcardsPage';
-import AddFlashcardPage from './pages/AddFlashcardPage';
-import DecksPage from './pages/DecksPage';
-import EditFlashcardPage from './pages/EditFlashcardPage';
-import OfficialBeginnerDecksPage from './pages/OfficialBeginnerDecksPage';
-import StudySessionPage from './pages/StudySessionPage';
-import ImportFlashcardsPage from './pages/ImportFlashcardsPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import OnboardingPage from './pages/OnboardingPage';
-import ContentPage from './pages/ContentPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
-import { getDashboardStats, getDecks, getStudySessions } from './services/flashcardService';
+import { getDashboardOverview } from './services/flashcardService';
+
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const FlashcardListPage = lazy(() => import('./pages/FlashcardListPage'));
+const CommunityFlashcardsPage = lazy(() => import('./pages/CommunityFlashcardsPage'));
+const AddFlashcardPage = lazy(() => import('./pages/AddFlashcardPage'));
+const DecksPage = lazy(() => import('./pages/DecksPage'));
+const EditFlashcardPage = lazy(() => import('./pages/EditFlashcardPage'));
+const OfficialBeginnerDecksPage = lazy(() => import('./pages/OfficialBeginnerDecksPage'));
+const StudySessionPage = lazy(() => import('./pages/StudySessionPage'));
+const ImportFlashcardsPage = lazy(() => import('./pages/ImportFlashcardsPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const ContentPage = lazy(() => import('./pages/ContentPage'));
 
 const getStoredTheme = () => {
   try {
@@ -40,11 +41,7 @@ function App() {
   const [theme, setTheme] = useState(getStoredTheme);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
-  const [profileStats, setProfileStats] = useState({
-    cards: 0,
-    decks: 0,
-    studySessions: 0
-  });
+  const [dashboardOverview, setDashboardOverview] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -57,32 +54,36 @@ function App() {
   }, [location.pathname]);
 
   useEffect(() => {
-    const loadProfileStats = async () => {
+    const loadDashboardOverview = async () => {
       if (!isAuthenticated) {
-        setProfileStats({ cards: 0, decks: 0, studySessions: 0 });
+        setDashboardOverview(null);
         setIsProfileOpen(false);
         return;
       }
 
-      try {
-        const [{ data: statsData }, { data: deckData }, { data: sessionData }] = await Promise.all([
-          getDashboardStats(),
-          getDecks(),
-          getStudySessions()
-        ]);
+      if (location.pathname === '/') {
+        return;
+      }
 
-        setProfileStats({
-          cards: statsData.total || 0,
-          decks: deckData.length || 0,
-          studySessions: sessionData.length || 0
-        });
+      try {
+        const { data } = await getDashboardOverview();
+        setDashboardOverview(data);
       } catch (error) {
-        console.error('Failed to load profile stats:', error);
+        console.error('Failed to load dashboard overview:', error);
       }
     };
 
-    loadProfileStats();
-  }, [isAuthenticated]);
+    loadDashboardOverview();
+  }, [isAuthenticated, location.pathname]);
+
+  const profileStats = useMemo(
+    () => ({
+      cards: dashboardOverview?.stats?.total || 0,
+      decks: dashboardOverview?.decks?.length || 0,
+      studySessions: dashboardOverview?.continueLearning?.sessions?.length || 0
+    }),
+    [dashboardOverview]
+  );
 
   const toggleTheme = () => {
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'));
@@ -112,6 +113,114 @@ function App() {
     navItems.find((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)))?.label ||
     (isAuthenticated ? 'Workspace' : 'Welcome');
   const onboardingRequired = isAuthenticated && user && !user.onboardingCompleted;
+  const appContent = (
+    <main className="page-content">
+      <Suspense
+        fallback={
+          <section className="page-section">
+            <div className="card empty-state">
+              <h3>Loading</h3>
+              <p className="muted-text">Preparing the page.</p>
+            </div>
+          </section>
+        }
+      >
+        <Routes>
+          <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+          <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <OnboardingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <DashboardPage initialOverview={dashboardOverview} onOverviewLoaded={setDashboardOverview} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/content"
+            element={
+              <ProtectedRoute>
+                <ContentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/flashcards"
+            element={
+              <ProtectedRoute>
+                <FlashcardListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/community"
+            element={
+              <ProtectedRoute>
+                <CommunityFlashcardsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/decks"
+            element={
+              <ProtectedRoute>
+                <DecksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/official-beginner-decks"
+            element={
+              <ProtectedRoute>
+                <OfficialBeginnerDecksPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/add"
+            element={
+              <ProtectedRoute>
+                <AddFlashcardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/import"
+            element={
+              <ProtectedRoute>
+                <ImportFlashcardsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/edit/:id"
+            element={
+              <ProtectedRoute>
+                <EditFlashcardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/study"
+            element={
+              <ProtectedRoute>
+                <StudySessionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
+        </Routes>
+      </Suspense>
+    </main>
+  );
 
   if (onboardingRequired && location.pathname !== '/onboarding') {
     return <Navigate to="/onboarding" replace />;
@@ -240,101 +349,7 @@ function App() {
           </div>
         </header>
 
-        <main className="page-content">
-          <Routes>
-            <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-            <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
-            <Route
-              path="/onboarding"
-              element={
-                <ProtectedRoute>
-                  <OnboardingPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <DashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/content"
-              element={
-                <ProtectedRoute>
-                  <ContentPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/flashcards"
-              element={
-                <ProtectedRoute>
-                  <FlashcardListPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/community"
-              element={
-                <ProtectedRoute>
-                  <CommunityFlashcardsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/decks"
-              element={
-                <ProtectedRoute>
-                  <DecksPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/official-beginner-decks"
-              element={
-                <ProtectedRoute>
-                  <OfficialBeginnerDecksPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/add"
-              element={
-                <ProtectedRoute>
-                  <AddFlashcardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/import"
-              element={
-                <ProtectedRoute>
-                  <ImportFlashcardsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/edit/:id"
-              element={
-                <ProtectedRoute>
-                  <EditFlashcardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/study"
-              element={
-                <ProtectedRoute>
-                  <StudySessionPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="*" element={<Navigate to={isAuthenticated ? '/' : '/login'} replace />} />
-          </Routes>
-        </main>
+        {appContent}
       </div>
     </div>
   );

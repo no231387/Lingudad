@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import PageIntro from '../components/PageIntro';
+import { getPostLoginRedirect } from '../utils/routing';
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -21,7 +22,7 @@ function LoginPage() {
     try {
       setError('');
       await login(formData);
-      const redirectTo = location.state?.from?.pathname || '/';
+      const redirectTo = getPostLoginRedirect(location.state);
       navigate(redirectTo, { replace: true });
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Login failed.');
