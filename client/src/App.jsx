@@ -116,6 +116,7 @@ function App() {
   const currentRouteLabel =
     navItems.find((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)))?.label ||
     (isAuthenticated ? 'Workspace' : 'Welcome');
+  const isStudyRoute = location.pathname.startsWith('/study');
   const onboardingRequired = isAuthenticated && user && !user.onboardingCompleted;
   const appContent = (
     <main className="page-content">
@@ -305,7 +306,7 @@ function App() {
       </aside>
 
       <div className="app-main">
-        <header className="topbar card">
+        <header className={`topbar card ${isStudyRoute ? 'topbar-compact' : ''}`.trim()}>
           <div className="topbar-leading">
             <button
               type="button"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createStudySession, getDecks, getFlashcards, getTags, reviewFlashcard } from '../services/flashcardService';
 import PageIntro from '../components/PageIntro';
+import { updateStudyQueue } from '../utils/studySession';
 
 const customSessionDefaults = {
   deckId: '',
@@ -210,13 +211,9 @@ function StudySessionPage() {
         goodCount: previous.goodCount + (rating === 'good' ? 1 : 0),
         easyCount: previous.easyCount + (rating === 'easy' ? 1 : 0)
       }));
-
-      const remainingCount = activeCards.length - 1;
-      setActiveCards((previous) => previous.filter((card) => card._id !== currentCard._id));
-      setCurrentIndex((previous) => {
-        if (remainingCount <= 0) return 0;
-        return previous >= remainingCount ? 0 : previous;
-      });
+      const nextQueueState = updateStudyQueue(activeCards, currentIndex, rating);
+      setActiveCards(nextQueueState.cards);
+      setCurrentIndex(nextQueueState.nextIndex);
       setShowAnswer(false);
     } catch (error) {
       console.error('Failed to review flashcard:', error);
@@ -355,7 +352,7 @@ function StudySessionPage() {
           className="page-intro-compact study-session-intro"
           actions={
             <div className="study-session-progress">
-              <span className="mapped-column-tag">{activeCards.length} left</span>
+              <span className="mapped-column-tag">{activeCards.length} in queue</span>
               <button type="button" onClick={handleExitSession} className="secondary-button">
                 Exit session
               </button>
@@ -363,12 +360,17 @@ function StudySessionPage() {
           }
         />
 
-        <article className="card study-card study-card-large">
+        <article className="card study-card study-card-large study-session-card">
           <div className="study-card-content">
             <h3>{currentCard.wordOrPhrase}</h3>
-            <p className="study-card-meta">
-              <strong>Language:</strong> {currentCard.language}
-            </p>
+            <div className="study-card-facts">
+              <p className="study-card-meta">
+                <strong>Language:</strong> {currentCard.language}
+              </p>
+              <p className="study-card-meta">
+                <strong>Proficiency:</strong> {currentCard.proficiency || 1}
+              </p>
+            </div>
 
             {showAnswer ? (
               <>
@@ -385,32 +387,34 @@ function StudySessionPage() {
                     <strong>Tags:</strong> {currentCard.tags.map((tag) => tag.name).join(', ')}
                   </p>
                 ) : null}
-                <div className="rating-row">
-                  <p>How did this review feel?</p>
-                  <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
-                    Again
-                  </button>
-                  <button type="button" onClick={() => handleRating('good')} disabled={isSubmitting}>
-                    Good (+1 Proficiency)
-                  </button>
-                  <button type="button" onClick={() => handleRating('easy')} disabled={isSubmitting} className="easy-button">
-                    Easy (+2 Proficiency)
-                  </button>
+                <div className="study-review-panel">
+                  <p className="study-review-label">How did this review feel?</p>
+                  <div className="study-review-actions">
+                    <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
+                      Again
+                    </button>
+                    <button type="button" onClick={() => handleRating('good')} disabled={isSubmitting}>
+                      Good (+1 Proficiency)
+                    </button>
+                    <button type="button" onClick={() => handleRating('easy')} disabled={isSubmitting} className="easy-button">
+                      Easy (+2 Proficiency)
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
-              <button type="button" onClick={() => setShowAnswer(true)}>
+              <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
                 Reveal Translation
               </button>
             )}
           </div>
-        </article>
 
-        <div className="study-footer-actions">
-          <button type="button" onClick={nextCard} className="secondary-button">
-            Skip Card
-          </button>
-        </div>
+          <div className="study-footer-actions">
+            <button type="button" onClick={nextCard} className="secondary-button">
+              Skip Card
+            </button>
+          </div>
+        </article>
       </section>
     );
   }
