@@ -51,7 +51,7 @@ Recommended deployment flow:
 
 Required environment variables:
 
-- `MONGODB_URI`
+- `MONGODB_URI` or `DATABASE_URL`
 - `JWT_SECRET`
 - `CORS_ORIGINS`
 
