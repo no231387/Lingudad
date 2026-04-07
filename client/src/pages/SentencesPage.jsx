@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageIntro from '../components/PageIntro';
-import { createFlashcard, getRecommendedSentences, searchSentences } from '../services/flashcardService';
+import {
+  createFlashcardFromSentence,
+  createQuizFromSentence,
+  getRecommendedSentences,
+  searchSentences
+} from '../services/flashcardService';
 import { useAuth } from '../context/AuthContext';
-
-const buildFlashcardPayload = (item) => ({
-  wordOrPhrase: item.flashcardSeed?.wordOrPhrase || item.text,
-  translation: item.flashcardSeed?.translation || item.primaryTranslation || item.translations?.[0]?.text || '',
-  reading: '',
-  meaning: item.flashcardSeed?.meaning || (Array.isArray(item.translations) ? item.translations.map((entry) => entry.text).join('; ') : ''),
-  language: item.language,
-  category: item.topicTags?.[0] || 'Sentence',
-  tagNames: [...(item.skillTags || []), ...(item.topicTags || [])].join(', '),
-  sourceType: item.sourceType,
-  sourceProvider: item.sourceProvider,
-  sourceId: item.sourceId
-});
 
 function SentencesPage() {
   const { user } = useAuth();
@@ -27,6 +19,9 @@ function SentencesPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const [isCreatingFlashcard, setIsCreatingFlashcard] = useState(false);
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+  const [lastFlashcard, setLastFlashcard] = useState(null);
+  const [lastQuiz, setLastQuiz] = useState(null);
 
   useEffect(() => {
     const loadRecommended = async () => {
@@ -81,13 +76,33 @@ function SentencesPage() {
     try {
       setIsCreatingFlashcard(true);
       setMessage('');
-      await createFlashcard(buildFlashcardPayload(selectedItem));
+      const { data } = await createFlashcardFromSentence(selectedItem._id);
+      setLastFlashcard(data);
       setMessage('Flashcard created from sentence.');
     } catch (error) {
       console.error('Failed to create flashcard from sentence:', error);
       setMessage(error.response?.data?.message || 'Could not create a flashcard from this sentence.');
     } finally {
       setIsCreatingFlashcard(false);
+    }
+  };
+
+  const handleCreateQuiz = async () => {
+    if (!selectedItem) {
+      return;
+    }
+
+    try {
+      setIsCreatingQuiz(true);
+      setMessage('');
+      const { data } = await createQuizFromSentence(selectedItem._id);
+      setLastQuiz(data);
+      setMessage('Cloze quiz seed created from sentence.');
+    } catch (error) {
+      console.error('Failed to create quiz from sentence:', error);
+      setMessage(error.response?.data?.message || 'Could not create a cloze quiz from this sentence.');
+    } finally {
+      setIsCreatingQuiz(false);
     }
   };
 
@@ -211,9 +226,21 @@ function SentencesPage() {
                   <h3>{selectedItem.text}</h3>
                   <p className="muted-text">{selectedItem.language}</p>
                 </div>
-                <button type="button" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
-                  {isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}
-                </button>
+              </div>
+
+              <div className="study-action-panel">
+                <div className="study-action-copy">
+                  <h4>Create study items</h4>
+                  <p className="muted-text">Create a sentence flashcard or a cloze seed using this source-backed example.</p>
+                </div>
+                <div className="study-action-row">
+                  <button type="button" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
+                    {isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={handleCreateQuiz} disabled={isCreatingQuiz}>
+                    {isCreatingQuiz ? 'Creating...' : 'Create Cloze Seed'}
+                  </button>
+                </div>
               </div>
 
               <div className="section-stack-tight">
@@ -281,11 +308,34 @@ function SentencesPage() {
                   {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
                 </p>
               </div>
+
+              {lastFlashcard ? (
+                <div className="study-preview-card">
+                  <div className="section-stack-tight">
+                    <h4>Latest flashcard</h4>
+                    <p className="muted-text">
+                      {lastFlashcard.wordOrPhrase}
+                      {' -> '}
+                      {lastFlashcard.translation}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {lastQuiz ? (
+                <div className="study-preview-card">
+                  <div className="section-stack-tight">
+                    <h4>Latest cloze seed</h4>
+                    <p>{lastQuiz.prompt}</p>
+                    <p className="muted-text">Answer: {lastQuiz.correctAnswer}</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select a sentence</h4>
-              <p className="muted-text">Choose a recommended or searched sentence to review its translations and linked vocabulary.</p>
+              <p className="muted-text">Choose a recommended or searched sentence to review it and create study items.</p>
             </div>
           )}
         </div>

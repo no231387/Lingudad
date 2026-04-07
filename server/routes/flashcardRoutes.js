@@ -12,7 +12,9 @@ const {
   getDashboardStats,
   bulkImportFlashcards,
   removeDuplicateWords,
-  getCommunityFlashcards
+  getCommunityFlashcards,
+  createFlashcardFromVocabulary,
+  createFlashcardFromSentence
 } = require('../controllers/flashcardController');
 
 const router = express.Router();
@@ -21,6 +23,8 @@ router.use(protect);
 
 router.get('/stats', getDashboardStats);
 router.get('/community', getCommunityFlashcards);
+router.post('/from-vocabulary/:id', createFlashcardFromVocabulary);
+router.post('/from-sentence/:id', createFlashcardFromSentence);
 router.post('/import', bulkImportFlashcards);
 router.delete('/duplicates/words', removeDuplicateWords);
 router.route('/').get(getFlashcards).post(createFlashcard);

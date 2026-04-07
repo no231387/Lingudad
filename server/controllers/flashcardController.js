@@ -3,6 +3,10 @@ const Deck = require('../models/Deck');
 const Tag = require('../models/Tag');
 const { normalizeSourceFields, SOURCE_TYPES } = require('../services/sourceCatalogService');
 const { upsertProgress } = require('../services/userProgressService');
+const {
+  createFlashcardFromSentence: generateFlashcardFromSentence,
+  createFlashcardFromVocabulary: generateFlashcardFromVocabulary
+} = require('../services/studyGenerationService');
 
 const REVIEW_RATINGS = new Set(['again', 'good', 'easy']);
 const DUPLICATE_OPTIONS = new Set(['skip', 'import_anyway', 'update_existing']);
@@ -31,13 +35,20 @@ const applyReviewRating = (flashcard, rating) => {
 };
 
 const normalizeText = (value) => String(value || '').trim();
-
-const parseTagNames = (value) => {
+const parseTextList = (value) => {
   if (Array.isArray(value)) {
     return [...new Set(value.map((item) => normalizeText(item)).filter(Boolean))];
   }
 
-  return [...new Set(String(value || '').split(',').map((item) => normalizeText(item)).filter(Boolean))];
+  if (typeof value === 'string') {
+    return [...new Set(value.split(',').map((item) => normalizeText(item)).filter(Boolean))];
+  }
+
+  return [];
+};
+
+const parseTagNames = (value) => {
+  return parseTextList(value);
 };
 
 const parseProficiency = (value) => {
@@ -207,10 +218,16 @@ const buildFlashcardPayload = async ({ body, user, keepOwner, currentOwner }) =>
     language: normalizeText(body.language),
     category: deck?.name || normalizeText(body.category) || 'General',
     tags: tags.map((tag) => tag._id),
+    topicTags: parseTextList(body.topicTags),
+    registerTags: parseTextList(body.registerTags),
+    skillTags: parseTextList(body.skillTags),
+    difficulty: normalizeText(body.difficulty),
     exampleSentence: normalizeText(body.exampleSentence),
     sourceType: source.sourceType,
     sourceProvider: source.sourceProvider,
     sourceId: source.sourceId,
+    generatedFromModel: normalizeText(body.generatedFromModel),
+    generatedFromId: normalizeText(body.generatedFromId),
     proficiency: parseProficiency(body.proficiency).value ?? 1
   };
 };
@@ -253,10 +270,16 @@ const buildImportPayload = async (row, user, importOptions = {}) => {
     language,
     category: deck?.name || deckName,
     tags: tags.map((tag) => tag._id),
+    topicTags: [],
+    registerTags: [],
+    skillTags: [],
+    difficulty: '',
     exampleSentence: '',
     sourceType: SOURCE_TYPES.USER,
     sourceProvider: 'user',
     sourceId: '',
+    generatedFromModel: '',
+    generatedFromId: '',
     proficiency: proficiencyResult.value ?? 1
   };
 
@@ -627,5 +650,23 @@ exports.removeDuplicateWords = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to remove duplicate words.', error: error.message });
+  }
+};
+
+exports.createFlashcardFromVocabulary = async (req, res) => {
+  try {
+    const flashcard = await generateFlashcardFromVocabulary({ id: req.params.id, user: req.user });
+    res.status(201).json(flashcard);
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to create flashcard from vocabulary.', error: error.message });
+  }
+};
+
+exports.createFlashcardFromSentence = async (req, res) => {
+  try {
+    const flashcard = await generateFlashcardFromSentence({ id: req.params.id, user: req.user });
+    res.status(201).json(flashcard);
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to create flashcard from sentence.', error: error.message });
   }
 };

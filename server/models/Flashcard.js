@@ -48,6 +48,29 @@ const flashcardSchema = new mongoose.Schema(
         ref: 'Tag'
       }
     ],
+    topicTags: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    registerTags: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    skillTags: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    difficulty: {
+      type: String,
+      default: '',
+      trim: true
+    },
     exampleSentence: {
       type: String,
       default: '',
@@ -64,6 +87,16 @@ const flashcardSchema = new mongoose.Schema(
       trim: true
     },
     sourceId: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    generatedFromModel: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    generatedFromId: {
       type: String,
       default: '',
       trim: true

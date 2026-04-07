@@ -1,20 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageIntro from '../components/PageIntro';
-import { createFlashcard, getRecommendedVocabulary, searchVocabulary } from '../services/flashcardService';
+import {
+  createFlashcardFromVocabulary,
+  createQuizFromVocabulary,
+  getRecommendedVocabulary,
+  searchVocabulary
+} from '../services/flashcardService';
 import { useAuth } from '../context/AuthContext';
-
-const buildFlashcardPayload = (item) => ({
-  wordOrPhrase: item.flashcardSeed?.wordOrPhrase || item.term,
-  translation: item.flashcardSeed?.translation || item.primaryMeaning || item.meanings?.[0] || '',
-  reading: item.flashcardSeed?.reading || item.reading || '',
-  meaning: item.flashcardSeed?.meaning || (Array.isArray(item.meanings) ? item.meanings.join('; ') : ''),
-  language: item.language,
-  category: item.topicTags?.[0] || 'Vocabulary',
-  tagNames: [...(item.skillTags || []), ...(item.topicTags || [])].join(', '),
-  sourceType: item.sourceType,
-  sourceProvider: item.sourceProvider,
-  sourceId: item.sourceId
-});
 
 function VocabularyPage() {
   const { user } = useAuth();
@@ -27,6 +19,9 @@ function VocabularyPage() {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
   const [isCreatingFlashcard, setIsCreatingFlashcard] = useState(false);
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+  const [lastFlashcard, setLastFlashcard] = useState(null);
+  const [lastQuiz, setLastQuiz] = useState(null);
 
   useEffect(() => {
     const loadRecommended = async () => {
@@ -81,13 +76,33 @@ function VocabularyPage() {
     try {
       setIsCreatingFlashcard(true);
       setMessage('');
-      await createFlashcard(buildFlashcardPayload(selectedItem));
+      const { data } = await createFlashcardFromVocabulary(selectedItem._id);
+      setLastFlashcard(data);
       setMessage('Flashcard created from vocabulary.');
     } catch (error) {
       console.error('Failed to create flashcard from vocabulary:', error);
       setMessage(error.response?.data?.message || 'Could not create a flashcard from this vocabulary item.');
     } finally {
       setIsCreatingFlashcard(false);
+    }
+  };
+
+  const handleCreateQuiz = async () => {
+    if (!selectedItem) {
+      return;
+    }
+
+    try {
+      setIsCreatingQuiz(true);
+      setMessage('');
+      const { data } = await createQuizFromVocabulary(selectedItem._id);
+      setLastQuiz(data);
+      setMessage('Quiz seed created from vocabulary.');
+    } catch (error) {
+      console.error('Failed to create quiz from vocabulary:', error);
+      setMessage(error.response?.data?.message || 'Could not create a quiz from this vocabulary item.');
+    } finally {
+      setIsCreatingQuiz(false);
     }
   };
 
@@ -211,9 +226,21 @@ function VocabularyPage() {
                   <h3>{selectedItem.term}</h3>
                   <p className="vocabulary-reading">{selectedItem.reading || 'No reading provided'}</p>
                 </div>
-                <button type="button" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
-                  {isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}
-                </button>
+              </div>
+
+              <div className="study-action-panel">
+                <div className="study-action-copy">
+                  <h4>Create study items</h4>
+                  <p className="muted-text">Use this entry to create a flashcard or a meaning-recall quiz seed.</p>
+                </div>
+                <div className="study-action-row">
+                  <button type="button" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
+                    {isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}
+                  </button>
+                  <button type="button" className="secondary-button" onClick={handleCreateQuiz} disabled={isCreatingQuiz}>
+                    {isCreatingQuiz ? 'Creating...' : 'Create Quiz Seed'}
+                  </button>
+                </div>
               </div>
 
               <div className="section-stack-tight">
@@ -279,11 +306,34 @@ function VocabularyPage() {
                   {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
                 </p>
               </div>
+
+              {lastFlashcard ? (
+                <div className="study-preview-card">
+                  <div className="section-stack-tight">
+                    <h4>Latest flashcard</h4>
+                    <p className="muted-text">
+                      {lastFlashcard.wordOrPhrase}
+                      {' -> '}
+                      {lastFlashcard.translation}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              {lastQuiz ? (
+                <div className="study-preview-card">
+                  <div className="section-stack-tight">
+                    <h4>Latest quiz seed</h4>
+                    <p>{lastQuiz.prompt}</p>
+                    <p className="muted-text">Answer: {lastQuiz.correctAnswer}</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select vocabulary</h4>
-              <p className="muted-text">Choose a recommended or searched entry to inspect it and create a flashcard.</p>
+              <p className="muted-text">Choose a recommended or searched entry to inspect it and create study items.</p>
             </div>
           )}
         </div>

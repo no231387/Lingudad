@@ -92,6 +92,8 @@ export const getCommunityFlashcards = (params = {}) => api.get('/flashcards/comm
 export const getDashboardStats = () => api.get('/flashcards/stats');
 export const getFlashcard = (id) => api.get(`/flashcards/${id}`);
 export const createFlashcard = (data) => api.post('/flashcards', data);
+export const createFlashcardFromVocabulary = (id) => api.post(`/flashcards/from-vocabulary/${id}`);
+export const createFlashcardFromSentence = (id) => api.post(`/flashcards/from-sentence/${id}`);
 export const bulkImportFlashcards = (data) => api.post('/flashcards/import', data);
 export const removeDuplicateWords = () => api.delete('/flashcards/duplicates/words');
 export const updateFlashcard = (id, data) => api.put(`/flashcards/${id}`, data);
@@ -99,3 +101,5 @@ export const deleteFlashcard = (id) => api.delete(`/flashcards/${id}`);
 export const updateProficiency = (id, rating) => api.patch(`/flashcards/${id}/proficiency`, { rating });
 export const resetFlashcardProficiency = (id) => api.patch(`/flashcards/${id}/reset-proficiency`);
 export const reviewFlashcard = (id, rating) => api.patch(`/flashcards/${id}/review`, { rating });
+export const createQuizFromVocabulary = (id) => api.post(`/quizzes/from-vocabulary/${id}`);
+export const createQuizFromSentence = (id) => api.post(`/quizzes/from-sentence/${id}`);

@@ -189,8 +189,8 @@ function StudySessionPage() {
 
     startStudySession({
       cards: customCards,
-      title: titleParts.join(' • '),
-      description: 'A study session built from your current filters.',
+      title: titleParts.join(' / '),
+      description: 'Built from your current filters.',
       deckId: selectedDeck?._id || null
     });
   };
@@ -278,7 +278,7 @@ function StudySessionPage() {
       startStudySession({
         cards: deckCards,
         title: selectedDeck ? `${selectedDeck.name} Study` : 'Deck Study',
-        description: 'A deck-based study session launched from your decks page.',
+        description: 'A deck-based session launched from your decks page.',
         deckId: selectedDeckId
       });
     }
@@ -352,9 +352,10 @@ function StudySessionPage() {
           eyebrow="Active study session"
           title={activeSessionMeta.title}
           description={activeSessionMeta.description}
+          className="page-intro-compact study-session-intro"
           actions={
             <div className="study-session-progress">
-              <span className="mapped-column-tag">{activeCards.length} cards left</span>
+              <span className="mapped-column-tag">{activeCards.length} left</span>
               <button type="button" onClick={handleExitSession} className="secondary-button">
                 Exit session
               </button>
@@ -374,16 +375,16 @@ function StudySessionPage() {
                 <p className="study-card-answer">
                   <strong>Translation:</strong> {currentCard.translation}
                 </p>
-                {currentCard.exampleSentence && (
+                {currentCard.exampleSentence ? (
                   <p className="study-card-meta">
                     <strong>Example:</strong> {currentCard.exampleSentence}
                   </p>
-                )}
-                {currentCard.tags?.length > 0 && (
+                ) : null}
+                {currentCard.tags?.length > 0 ? (
                   <p className="study-card-meta">
                     <strong>Tags:</strong> {currentCard.tags.map((tag) => tag.name).join(', ')}
                   </p>
-                )}
+                ) : null}
                 <div className="rating-row">
                   <p>How did this review feel?</p>
                   <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
@@ -416,11 +417,7 @@ function StudySessionPage() {
 
   return (
     <section className="page-section">
-      <PageIntro
-        eyebrow="Study"
-        title="Review with a calmer, more focused flow"
-        description="Start from a preset, launch a deck session, or build a custom review run based on tags, proficiency, and session size."
-      />
+      <PageIntro eyebrow="Study" title="Study sessions" description="Start from a preset, a deck, or a custom filter set." />
 
       {isLoadingSetup ? (
         <div className="card">
@@ -473,7 +470,7 @@ function StudySessionPage() {
                       onClick={() =>
                         launchPreset({
                           title: `${deck.name} Study`,
-                          description: 'A premade study session based on this deck.',
+                          description: 'A preset session for this deck.',
                           cards: availableCards.filter((card) => String(card.deck?._id || card.deck) === String(deck._id)),
                           deckId: deck._id
                         })
@@ -498,7 +495,7 @@ function StudySessionPage() {
               {tagPresets.length === 0 ? (
                 <div className="empty-state compact-empty-state">
                   <h4>No tags ready yet</h4>
-                  <p className="muted-text">Once your flashcards include tags, Lingua can build fast tag-based review sessions here.</p>
+                  <p className="muted-text">Once your flashcards include tags, you can start tag-based sessions here.</p>
                 </div>
               ) : (
                 tagPresets.map((tag) => (
@@ -510,8 +507,8 @@ function StudySessionPage() {
                       type="button"
                       onClick={() =>
                         launchPreset({
-                          title: `Tag Study • #${tag.name}`,
-                          description: 'A premade study session based on a flashcard tag.',
+                          title: `Tag Study / #${tag.name}`,
+                          description: 'A preset session for this tag.',
                           cards: availableCards.filter((card) => card.tags?.some((cardTag) => String(cardTag._id || cardTag) === String(tag._id)))
                         })
                       }
@@ -534,7 +531,7 @@ function StudySessionPage() {
             <div className="section-header">
               <div>
                 <h3>Build Your Own Session</h3>
-                <p className="muted-text">Mix filters together and create a study run that fits what you want to review.</p>
+                <p className="muted-text">Combine filters to build a focused review set.</p>
               </div>
             </div>
 
