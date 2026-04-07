@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createStudySession, getDecks, getFlashcards, getTags, reviewFlashcard } from '../services/flashcardService';
 import PageIntro from '../components/PageIntro';
@@ -77,9 +77,11 @@ function StudySessionPage() {
           getTags()
         ]);
 
-        setAvailableCards(flashcardData);
-        setDecks(deckData);
-        setTags(tagData);
+        startTransition(() => {
+          setAvailableCards(flashcardData);
+          setDecks(deckData);
+          setTags(tagData);
+        });
       } catch (error) {
         console.error('Failed to load study setup:', error);
       } finally {
@@ -202,19 +204,21 @@ function StudySessionPage() {
     try {
       setIsSubmitting(true);
       await reviewFlashcard(currentCard._id, rating);
-      setSessionStats((previous) => ({
-        ...previous,
-        reviewedFlashcards: previous.reviewedFlashcards.includes(currentCard._id)
-          ? previous.reviewedFlashcards
-          : [...previous.reviewedFlashcards, currentCard._id],
-        againCount: previous.againCount + (rating === 'again' ? 1 : 0),
-        goodCount: previous.goodCount + (rating === 'good' ? 1 : 0),
-        easyCount: previous.easyCount + (rating === 'easy' ? 1 : 0)
-      }));
       const nextQueueState = updateStudyQueue(activeCards, currentIndex, rating);
-      setActiveCards(nextQueueState.cards);
-      setCurrentIndex(nextQueueState.nextIndex);
-      setShowAnswer(false);
+      startTransition(() => {
+        setSessionStats((previous) => ({
+          ...previous,
+          reviewedFlashcards: previous.reviewedFlashcards.includes(currentCard._id)
+            ? previous.reviewedFlashcards
+            : [...previous.reviewedFlashcards, currentCard._id],
+          againCount: previous.againCount + (rating === 'again' ? 1 : 0),
+          goodCount: previous.goodCount + (rating === 'good' ? 1 : 0),
+          easyCount: previous.easyCount + (rating === 'easy' ? 1 : 0)
+        }));
+        setActiveCards(nextQueueState.cards);
+        setCurrentIndex(nextQueueState.nextIndex);
+        setShowAnswer(false);
+      });
     } catch (error) {
       console.error('Failed to review flashcard:', error);
     } finally {

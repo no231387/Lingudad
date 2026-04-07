@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import FlashcardForm from '../components/FlashcardForm';
 import FilterBar from '../components/FilterBar';
@@ -32,7 +32,9 @@ function FlashcardListPage() {
     try {
       const query = Object.fromEntries(Object.entries(activeFilters).filter(([, value]) => value !== ''));
       const { data } = await getFlashcards(query);
-      setFlashcards(data);
+      startTransition(() => {
+        setFlashcards(data);
+      });
     } catch (error) {
       console.error('Failed to fetch flashcards:', error);
     }
@@ -45,7 +47,9 @@ function FlashcardListPage() {
           getDecks(),
           getOfficialBeginnerDecks()
         ]);
-        setDecks([...standardDecks, ...officialDecks]);
+        startTransition(() => {
+          setDecks([...standardDecks, ...officialDecks]);
+        });
       } catch (error) {
         console.error('Failed to load decks:', error);
       }

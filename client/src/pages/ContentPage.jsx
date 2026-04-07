@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import FlashcardForm from '../components/FlashcardForm';
 import PageIntro from '../components/PageIntro';
 import {
@@ -30,19 +30,21 @@ function ContentPage() {
   const [message, setMessage] = useState('');
   const [flashcardFormKey, setFlashcardFormKey] = useState(0);
 
-  const loadContent = async () => {
-    const { data } = await getLearningContent({
-      language: user?.language || 'Japanese'
-    });
-    setContentItems(data);
-    setSelectedContentId((current) => current || data[0]?._id || '');
-  };
-
   useEffect(() => {
     const loadPageData = async () => {
       try {
-        const [{ data: deckData }] = await Promise.all([getDecks(), loadContent()]);
-        setDecks(deckData);
+        const [{ data: deckData }, { data: contentData }] = await Promise.all([
+          getDecks(),
+          getLearningContent({
+            language: user?.language || 'Japanese'
+          })
+        ]);
+
+        startTransition(() => {
+          setDecks(deckData);
+          setContentItems(contentData);
+          setSelectedContentId((current) => current || contentData[0]?._id || '');
+        });
       } catch (error) {
         console.error('Failed to load content page:', error);
       }
@@ -50,6 +52,17 @@ function ContentPage() {
 
     loadPageData();
   }, [user?.language]);
+
+  const refreshContent = async () => {
+    const { data } = await getLearningContent({
+      language: user?.language || 'Japanese'
+    });
+
+    startTransition(() => {
+      setContentItems(data);
+      setSelectedContentId((current) => current || data[0]?._id || '');
+    });
+  };
 
   const selectedContent = useMemo(
     () => contentItems.find((item) => item._id === selectedContentId) || null,
@@ -72,7 +85,7 @@ function ContentPage() {
       setMessage('');
       await createLearningContent(contentForm);
       setContentForm(initialContentForm);
-      await loadContent();
+      await refreshContent();
       setMessage('Content saved.');
     } catch (error) {
       setMessage(error.response?.data?.message || 'Could not save content.');
@@ -92,7 +105,7 @@ function ContentPage() {
         await saveLearningContent(content._id);
       }
 
-      await loadContent();
+      await refreshContent();
     } catch (error) {
       setMessage(error.response?.data?.message || 'Could not update saved content.');
     }

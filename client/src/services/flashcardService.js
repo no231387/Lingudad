@@ -32,6 +32,11 @@ const api = axios.create({
   baseURL: API_BASE_URL
 });
 
+let dashboardOverviewCache = null;
+let dashboardOverviewCacheAt = 0;
+let dashboardOverviewRequest = null;
+const DASHBOARD_OVERVIEW_TTL_MS = 30_000;
+
 export const getStoredToken = () => readStorage(TOKEN_STORAGE_KEY);
 
 export const setAuthToken = (token) => {
@@ -46,6 +51,9 @@ export const setAuthToken = (token) => {
 
 export const clearAuthToken = () => {
   setAuthToken('');
+  dashboardOverviewCache = null;
+  dashboardOverviewCacheAt = 0;
+  dashboardOverviewRequest = null;
 };
 
 const existingToken = getStoredToken();
@@ -75,7 +83,35 @@ export const createTag = (data) => api.post('/tags', data);
 export const getStudySessions = () => api.get('/study-sessions');
 export const createStudySession = (data) => api.post('/study-sessions', data);
 export const deleteStudySession = (id) => api.delete(`/study-sessions/${id}`);
-export const getDashboardOverview = () => api.get('/dashboard/overview');
+export const clearDashboardOverviewCache = () => {
+  dashboardOverviewCache = null;
+  dashboardOverviewCacheAt = 0;
+  dashboardOverviewRequest = null;
+};
+
+export const getDashboardOverview = async ({ force = false } = {}) => {
+  const now = Date.now();
+
+  if (!force && dashboardOverviewCache && now - dashboardOverviewCacheAt < DASHBOARD_OVERVIEW_TTL_MS) {
+    return { data: dashboardOverviewCache };
+  }
+
+  if (!force && dashboardOverviewRequest) {
+    return dashboardOverviewRequest;
+  }
+
+  dashboardOverviewRequest = api.get('/dashboard/overview').then((response) => {
+    dashboardOverviewCache = response.data;
+    dashboardOverviewCacheAt = Date.now();
+    dashboardOverviewRequest = null;
+    return response;
+  });
+
+  return dashboardOverviewRequest.catch((error) => {
+    dashboardOverviewRequest = null;
+    throw error;
+  });
+};
 export const getLearningContent = (params = {}) => api.get('/content', { params });
 export const getLearningContentById = (id) => api.get(`/content/${id}`);
 export const createLearningContent = (data) => api.post('/content', data);

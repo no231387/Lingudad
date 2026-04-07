@@ -12,20 +12,17 @@ const createDefaultOverview = () => ({
 });
 
 function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
-  const [stats, setStats] = useState({ total: 0, mastered: 0, newCards: 0 });
   const [overview, setOverview] = useState(initialOverview || createDefaultOverview());
 
   useEffect(() => {
     if (initialOverview) {
       setOverview(initialOverview);
-      setStats(initialOverview.stats || { total: 0, mastered: 0, newCards: 0 });
       return;
     }
 
     const loadDashboard = async () => {
       try {
         const { data: overviewData } = await getDashboardOverview();
-        setStats(overviewData.stats || { total: 0, mastered: 0, newCards: 0 });
         setOverview(overviewData);
         onOverviewLoaded?.(overviewData);
       } catch (error) {
@@ -171,17 +168,17 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="stats-grid">
               <article className="card stat-card">
                 <h3>Flashcards</h3>
-                <p className="stat-number">{stats.total}</p>
+                <p className="stat-number">{overview.stats.total}</p>
                 <p className="muted-text">Total cards</p>
               </article>
               <article className="card stat-card">
                 <h3>New</h3>
-                <p className="stat-number">{stats.newCards}</p>
+                <p className="stat-number">{overview.stats.newCards}</p>
                 <p className="muted-text">At level 1</p>
               </article>
               <article className="card stat-card">
                 <h3>Mastered</h3>
-                <p className="stat-number">{stats.mastered}</p>
+                <p className="stat-number">{overview.stats.mastered}</p>
                 <p className="muted-text">At level 5</p>
               </article>
             </div>

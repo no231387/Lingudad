@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
-import { getDashboardOverview } from './services/flashcardService';
+import { clearDashboardOverviewCache, getDashboardOverview } from './services/flashcardService';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SentencesPage = lazy(() => import('./pages/SentencesPage'));
@@ -60,10 +60,11 @@ function App() {
       if (!isAuthenticated) {
         setDashboardOverview(null);
         setIsProfileOpen(false);
+        clearDashboardOverviewCache();
         return;
       }
 
-      if (location.pathname === '/') {
+      if (location.pathname === '/' || dashboardOverview) {
         return;
       }
 
@@ -76,7 +77,7 @@ function App() {
     };
 
     loadDashboardOverview();
-  }, [isAuthenticated, location.pathname]);
+  }, [dashboardOverview, isAuthenticated, location.pathname]);
 
   const profileStats = useMemo(
     () => ({
@@ -86,6 +87,13 @@ function App() {
     }),
     [dashboardOverview]
   );
+  const profileGoalSummary = useMemo(() => {
+    if (!user?.goals?.length) {
+      return 'No goals set';
+    }
+
+    return user.goals.join(', ');
+  }, [user]);
 
   const toggleTheme = () => {
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'));
@@ -266,11 +274,6 @@ function App() {
             <p className="brand-support">Manage decks, flashcards, and study sessions.</p>
           </div>
         </div>
-
-        <div className="sidebar-copy">
-          {user && <div className="role-banner">Signed in as {user.username}</div>}
-        </div>
-
         <nav className="nav-bar" aria-label="Primary">
           {navItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.to === '/'}>
@@ -279,30 +282,6 @@ function App() {
             </NavLink>
           ))}
         </nav>
-
-        {user && (
-          <div className="sidebar-profile">
-            <div className="section-stack-tight">
-              <p className="eyebrow-label">Profile</p>
-              <h3>{user.username}</h3>
-              <p className="muted-text">Current totals</p>
-            </div>
-            <div className="profile-stats">
-              <div className="profile-stat">
-                <span className="profile-stat-value">{profileStats.cards}</span>
-                <span className="muted-text">Cards</span>
-              </div>
-              <div className="profile-stat">
-                <span className="profile-stat-value">{profileStats.decks}</span>
-                <span className="muted-text">Decks</span>
-              </div>
-              <div className="profile-stat">
-                <span className="profile-stat-value">{profileStats.studySessions}</span>
-                <span className="muted-text">Sessions</span>
-              </div>
-            </div>
-          </div>
-        )}
       </aside>
 
       <div className={`app-main ${isStudyRoute ? 'app-main-study' : ''}`.trim()}>
@@ -344,6 +323,25 @@ function App() {
                       <div>
                         <p className="eyebrow-label">Account</p>
                         <h3>{user.username}</h3>
+                        <p className="muted-text">Signed in</p>
+                      </div>
+                    </div>
+                    <div className="profile-summary-grid">
+                      <div className="profile-summary-item">
+                        <span className="profile-summary-label">Language</span>
+                        <strong>{user.language || 'Not set'}</strong>
+                      </div>
+                      <div className="profile-summary-item">
+                        <span className="profile-summary-label">Level</span>
+                        <strong>{user.level || 'Not set'}</strong>
+                      </div>
+                      <div className="profile-summary-item">
+                        <span className="profile-summary-label">Daily goal</span>
+                        <strong>{user.dailyGoal ? `${user.dailyGoal} / day` : 'Not set'}</strong>
+                      </div>
+                      <div className="profile-summary-item">
+                        <span className="profile-summary-label">Goals</span>
+                        <strong>{profileGoalSummary}</strong>
                       </div>
                     </div>
                     <div className="profile-stats">
