@@ -1,0 +1,41 @@
+name: lingudad
+region: nyc
+
+services:
+  - name: web
+    github:
+      repo: no231387/Lingudad
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb
+    health_check:
+      http_path: /api/health
+      initial_delay_seconds: 10
+      period_seconds: 15
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+    envs:
+      - key: NODE_ENV
+        scope: RUN_TIME
+        type: GENERAL
+        value: production
+      - key: MONGODB_URI
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_YOUR_MONGODB_CONNECTION_STRING
+      - key: JWT_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: REPLACE_WITH_A_STRONG_SECRET
+      - key: CORS_ORIGINS
+        scope: RUN_TIME
+        type: GENERAL
+        value: ${APP_URL}
+      - key: VITE_API_BASE_URL
+        scope: BUILD_TIME
+        type: GENERAL
+        value: /api
