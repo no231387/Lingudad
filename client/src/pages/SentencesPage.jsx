@@ -1,28 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import PageIntro from '../components/PageIntro';
-import { createFlashcard, getRecommendedVocabulary, searchVocabulary } from '../services/flashcardService';
+import { createFlashcard, getRecommendedSentences, searchSentences } from '../services/flashcardService';
 import { useAuth } from '../context/AuthContext';
 
 const buildFlashcardPayload = (item) => ({
-  wordOrPhrase: item.flashcardSeed?.wordOrPhrase || item.term,
-  translation: item.flashcardSeed?.translation || item.primaryMeaning || item.meanings?.[0] || '',
-  reading: item.flashcardSeed?.reading || item.reading || '',
-  meaning: item.flashcardSeed?.meaning || (Array.isArray(item.meanings) ? item.meanings.join('; ') : ''),
+  wordOrPhrase: item.flashcardSeed?.wordOrPhrase || item.text,
+  translation: item.flashcardSeed?.translation || item.primaryTranslation || item.translations?.[0]?.text || '',
+  reading: '',
+  meaning: item.flashcardSeed?.meaning || (Array.isArray(item.translations) ? item.translations.map((entry) => entry.text).join('; ') : ''),
   language: item.language,
-  category: item.topicTags?.[0] || 'Vocabulary',
+  category: item.topicTags?.[0] || 'Sentence',
   tagNames: [...(item.skillTags || []), ...(item.topicTags || [])].join(', '),
   sourceType: item.sourceType,
   sourceProvider: item.sourceProvider,
   sourceId: item.sourceId
 });
 
-function VocabularyPage() {
+function SentencesPage() {
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [difficulty, setDifficulty] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [recommended, setRecommended] = useState([]);
-  const [selectedVocabularyId, setSelectedVocabularyId] = useState('');
+  const [selectedSentenceId, setSelectedSentenceId] = useState('');
   const [message, setMessage] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingRecommended, setIsLoadingRecommended] = useState(true);
@@ -32,13 +32,13 @@ function VocabularyPage() {
     const loadRecommended = async () => {
       try {
         setIsLoadingRecommended(true);
-        const { data } = await getRecommendedVocabulary({
+        const { data } = await getRecommendedSentences({
           language: user?.language === 'Japanese' ? 'ja' : user?.language || 'ja'
         });
         setRecommended(data.items || []);
-        setSelectedVocabularyId((current) => current || data.items?.[0]?._id || '');
+        setSelectedSentenceId((current) => current || data.items?.[0]?._id || '');
       } catch (error) {
-        console.error('Failed to load recommended vocabulary:', error);
+        console.error('Failed to load recommended sentences:', error);
       } finally {
         setIsLoadingRecommended(false);
       }
@@ -49,8 +49,8 @@ function VocabularyPage() {
 
   const selectedItem = useMemo(() => {
     const combined = [...recommended, ...searchResults];
-    return combined.find((item) => item._id === selectedVocabularyId) || recommended[0] || searchResults[0] || null;
-  }, [recommended, searchResults, selectedVocabularyId]);
+    return combined.find((item) => item._id === selectedSentenceId) || recommended[0] || searchResults[0] || null;
+  }, [recommended, searchResults, selectedSentenceId]);
 
   const handleSearch = async (event) => {
     event.preventDefault();
@@ -58,16 +58,16 @@ function VocabularyPage() {
     try {
       setIsSearching(true);
       setMessage('');
-      const { data } = await searchVocabulary({
+      const { data } = await searchSentences({
         q: query,
         difficulty,
         language: user?.language === 'Japanese' ? 'ja' : user?.language || 'ja'
       });
       setSearchResults(data);
-      setSelectedVocabularyId((current) => current || data[0]?._id || '');
+      setSelectedSentenceId((current) => current || data[0]?._id || '');
     } catch (error) {
-      console.error('Failed to search vocabulary:', error);
-      setMessage(error.response?.data?.message || 'Could not search vocabulary.');
+      console.error('Failed to search sentences:', error);
+      setMessage(error.response?.data?.message || 'Could not search sentences.');
     } finally {
       setIsSearching(false);
     }
@@ -82,10 +82,10 @@ function VocabularyPage() {
       setIsCreatingFlashcard(true);
       setMessage('');
       await createFlashcard(buildFlashcardPayload(selectedItem));
-      setMessage('Flashcard created from vocabulary.');
+      setMessage('Flashcard created from sentence.');
     } catch (error) {
-      console.error('Failed to create flashcard from vocabulary:', error);
-      setMessage(error.response?.data?.message || 'Could not create a flashcard from this vocabulary item.');
+      console.error('Failed to create flashcard from sentence:', error);
+      setMessage(error.response?.data?.message || 'Could not create a flashcard from this sentence.');
     } finally {
       setIsCreatingFlashcard(false);
     }
@@ -94,9 +94,9 @@ function VocabularyPage() {
   return (
     <section className="page-section">
       <PageIntro
-        eyebrow="Vocabulary"
-        title="Source-backed vocabulary"
-        description="Search trusted vocabulary entries and create flashcards that keep their source attribution."
+        eyebrow="Sentences"
+        title="Source-backed sentences"
+        description="Search sentence examples, inspect translations, and turn trusted examples into flashcards."
       />
 
       {message ? <div className="card status-panel">{message}</div> : null}
@@ -105,13 +105,13 @@ function VocabularyPage() {
         <div className="content-column">
           <form className="card form-card form-shell elevated-panel" onSubmit={handleSearch}>
             <div className="section-stack-tight">
-              <h3>Search vocabulary</h3>
-              <p className="muted-text">Search within your current language and filter by general difficulty when needed.</p>
+              <h3>Search sentences</h3>
+              <p className="muted-text">Search within your current language and narrow by general difficulty when useful.</p>
             </div>
 
             <label>
-              Search term
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by term, reading, or meaning" />
+              Search text
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by sentence text or translation" />
             </label>
 
             <label>
@@ -127,7 +127,7 @@ function VocabularyPage() {
             </label>
 
             <button type="submit" disabled={isSearching}>
-              {isSearching ? 'Searching...' : 'Search vocabulary'}
+              {isSearching ? 'Searching...' : 'Search sentences'}
             </button>
           </form>
 
@@ -143,26 +143,26 @@ function VocabularyPage() {
               {isLoadingRecommended ? (
                 <div className="empty-state compact-empty-state">
                   <h4>Loading recommendations</h4>
-                  <p className="muted-text">Fetching vocabulary matched to your profile.</p>
+                  <p className="muted-text">Fetching sentence examples matched to your profile.</p>
                 </div>
               ) : recommended.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>No vocabulary recommendations</h4>
-                  <p className="muted-text">Recommendations will appear after source-backed vocabulary is added for your language.</p>
+                  <h4>No sentence recommendations</h4>
+                  <p className="muted-text">Recommendations will appear after source-backed sentences are added for your language.</p>
                 </div>
               ) : (
                 recommended.map((item) => (
                   <button
                     key={item._id}
                     type="button"
-                    className={`content-list-item vocabulary-list-item ${selectedVocabularyId === item._id ? 'is-selected' : ''}`}
-                    onClick={() => setSelectedVocabularyId(item._id)}
+                    className={`content-list-item sentence-list-item ${selectedSentenceId === item._id ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedSentenceId(item._id)}
                   >
                     <div className="content-list-item-copy">
-                      <strong>{item.term}</strong>
-                      <span className="muted-text">{item.reading || 'No reading provided'}</span>
+                      <strong>{item.text}</strong>
+                      <span className="muted-text">{item.primaryTranslation || 'No translation provided'}</span>
                     </div>
-                    <span className="content-list-item-state">{item.difficulty || 'Source-backed'}</span>
+                    <span className="content-list-item-state">{item.difficulty || 'Sentence'}</span>
                   </button>
                 ))
               )}
@@ -173,7 +173,7 @@ function VocabularyPage() {
             <div className="section-header">
               <div>
                 <h3>Search results</h3>
-                <p className="muted-text">Results from the vocabulary truth layer.</p>
+                <p className="muted-text">Results from the sentence truth layer.</p>
               </div>
             </div>
 
@@ -181,19 +181,19 @@ function VocabularyPage() {
               {searchResults.length === 0 ? (
                 <div className="empty-state compact-empty-state">
                   <h4>No search results</h4>
-                  <p className="muted-text">Search when you want to inspect a specific term, reading, or meaning.</p>
+                  <p className="muted-text">Search when you want to inspect a specific sentence or translation.</p>
                 </div>
               ) : (
                 searchResults.map((item) => (
                   <button
                     key={item._id}
                     type="button"
-                    className={`content-list-item vocabulary-list-item ${selectedVocabularyId === item._id ? 'is-selected' : ''}`}
-                    onClick={() => setSelectedVocabularyId(item._id)}
+                    className={`content-list-item sentence-list-item ${selectedSentenceId === item._id ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedSentenceId(item._id)}
                   >
                     <div className="content-list-item-copy">
-                      <strong>{item.term}</strong>
-                      <span className="muted-text">{item.meanings?.slice(0, 2).join('; ') || 'No meaning available'}</span>
+                      <strong>{item.text}</strong>
+                      <span className="muted-text">{item.primaryTranslation || 'No translation provided'}</span>
                     </div>
                     <span className="content-list-item-state">{item.sourceProvider}</span>
                   </button>
@@ -205,11 +205,11 @@ function VocabularyPage() {
 
         <div className="content-column">
           {selectedItem ? (
-            <div className="card content-viewer-card elevated-panel vocabulary-detail-card">
+            <div className="card content-viewer-card elevated-panel sentence-detail-card">
               <div className="section-header">
-                <div className="vocabulary-hero-copy">
-                  <h3>{selectedItem.term}</h3>
-                  <p className="vocabulary-reading">{selectedItem.reading || 'No reading provided'}</p>
+                <div className="sentence-hero-copy">
+                  <h3>{selectedItem.text}</h3>
+                  <p className="muted-text">{selectedItem.language}</p>
                 </div>
                 <button type="button" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
                   {isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}
@@ -217,31 +217,37 @@ function VocabularyPage() {
               </div>
 
               <div className="section-stack-tight">
-                <h4>Meanings</h4>
+                <h4>Translations</h4>
                 <ul className="stacked-detail-list">
-                  {(selectedItem.meanings || []).map((meaning) => (
-                    <li key={meaning}>{meaning}</li>
+                  {(selectedItem.translations || []).map((translation) => (
+                    <li key={`${translation.language}-${translation.text}`}>
+                      <strong>{translation.language}:</strong> {translation.text}
+                    </li>
                   ))}
                 </ul>
               </div>
 
-              {selectedItem.partOfSpeech?.length ? (
+              {selectedItem.linkedVocabularyIds?.length ? (
                 <div className="section-stack-tight">
-                  <h4>Part of speech</h4>
-                  <p className="muted-text">{selectedItem.partOfSpeech.join(', ')}</p>
+                  <h4>Linked vocabulary</h4>
+                  <div className="choice-chip-row">
+                    {selectedItem.linkedVocabularyIds.map((entry) => (
+                      <span key={entry._id} className="choice-chip">
+                        {entry.term}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               ) : null}
 
-              {selectedItem.skillTags?.length || selectedItem.topicTags?.length || selectedItem.registerTags?.length ? (
+              {(selectedItem.skillTags?.length || selectedItem.topicTags?.length || selectedItem.registerTags?.length) ? (
                 <div className="detail-chip-groups">
                   {selectedItem.skillTags?.length ? (
                     <div className="section-stack-tight">
                       <h4>Skill tags</h4>
                       <div className="choice-chip-row">
                         {selectedItem.skillTags.map((tag) => (
-                          <span key={tag} className="choice-chip">
-                            {tag}
-                          </span>
+                          <span key={tag} className="choice-chip">{tag}</span>
                         ))}
                       </div>
                     </div>
@@ -251,9 +257,7 @@ function VocabularyPage() {
                       <h4>Topic tags</h4>
                       <div className="choice-chip-row">
                         {selectedItem.topicTags.map((tag) => (
-                          <span key={tag} className="choice-chip">
-                            {tag}
-                          </span>
+                          <span key={tag} className="choice-chip">{tag}</span>
                         ))}
                       </div>
                     </div>
@@ -263,9 +267,7 @@ function VocabularyPage() {
                       <h4>Register tags</h4>
                       <div className="choice-chip-row">
                         {selectedItem.registerTags.map((tag) => (
-                          <span key={tag} className="choice-chip">
-                            {tag}
-                          </span>
+                          <span key={tag} className="choice-chip">{tag}</span>
                         ))}
                       </div>
                     </div>
@@ -282,8 +284,8 @@ function VocabularyPage() {
             </div>
           ) : (
             <div className="card empty-state empty-state-emphasis">
-              <h4>Select vocabulary</h4>
-              <p className="muted-text">Choose a recommended or searched entry to inspect it and create a flashcard.</p>
+              <h4>Select a sentence</h4>
+              <p className="muted-text">Choose a recommended or searched sentence to review its translations and linked vocabulary.</p>
             </div>
           )}
         </div>
@@ -292,4 +294,4 @@ function VocabularyPage() {
   );
 }
 
-export default VocabularyPage;
+export default SentencesPage;

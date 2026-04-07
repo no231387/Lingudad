@@ -5,6 +5,7 @@ import { useAuth } from './context/AuthContext';
 import { getDashboardOverview } from './services/flashcardService';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const SentencesPage = lazy(() => import('./pages/SentencesPage'));
 const VocabularyPage = lazy(() => import('./pages/VocabularyPage'));
 const FlashcardListPage = lazy(() => import('./pages/FlashcardListPage'));
 const CommunityFlashcardsPage = lazy(() => import('./pages/CommunityFlashcardsPage'));
@@ -95,6 +96,7 @@ function App() {
       isAuthenticated
         ? [
             { to: '/', label: 'Home', shortLabel: 'Home' },
+            { to: '/sentences', label: 'Sentences', shortLabel: 'Sentence' },
             { to: '/vocabulary', label: 'Vocabulary', shortLabel: 'Vocab' },
             { to: '/content', label: 'Content', shortLabel: 'Content' },
             { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
@@ -143,6 +145,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage initialOverview={dashboardOverview} onOverviewLoaded={setDashboardOverview} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sentences"
+            element={
+              <ProtectedRoute>
+                <SentencesPage />
               </ProtectedRoute>
             }
           />

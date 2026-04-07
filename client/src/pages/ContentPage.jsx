@@ -133,7 +133,7 @@ function ContentPage() {
 
       <div className="content-page-grid">
         <div className="content-column">
-          <form className="card form-card form-shell" onSubmit={handleCreateContent}>
+          <form className="card form-card form-shell elevated-panel" onSubmit={handleCreateContent}>
             <div className="section-stack-tight">
               <h3>Add YouTube content</h3>
               <p className="muted-text">Save a video for review and later flashcard creation.</p>
@@ -178,7 +178,7 @@ function ContentPage() {
             </button>
           </form>
 
-          <div className="card">
+          <div className="card elevated-panel">
             <div className="section-header">
               <div>
                 <h3>Available content</h3>
@@ -188,9 +188,9 @@ function ContentPage() {
 
             <div className="content-list">
               {contentItems.length === 0 ? (
-                <div className="empty-state">
+                <div className="empty-state content-empty-state">
                   <h4>No content yet</h4>
-                  <p className="muted-text">Save your first YouTube item to start building the content library.</p>
+                  <p className="muted-text">Save a YouTube source here to start building a review library you can revisit and turn into flashcards.</p>
                 </div>
               ) : (
                 contentItems.map((item) => {
@@ -224,7 +224,7 @@ function ContentPage() {
         <div className="content-column">
           {selectedContent ? (
             <>
-              <div className="card content-viewer-card">
+              <div className="card content-viewer-card elevated-panel">
                 <div className="section-header">
                   <div>
                     <h3>{selectedContent.title}</h3>

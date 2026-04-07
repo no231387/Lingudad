@@ -142,8 +142,8 @@ p {
 .card {
   border: 1px solid var(--border);
   background: var(--surface);
-  backdrop-filter: blur(18px);
-  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(15, 33, 63, 0.06);
 }
 
 .app-sidebar {
@@ -184,7 +184,7 @@ p {
   color: white;
   font-size: 1.5rem;
   font-weight: 800;
-  box-shadow: 0 18px 36px rgba(33, 94, 201, 0.24);
+  box-shadow: 0 12px 26px rgba(33, 94, 201, 0.18);
   overflow: hidden;
 }
 
@@ -269,7 +269,7 @@ p {
 
 .nav-bar {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .nav-bar a {
@@ -282,22 +282,24 @@ p {
   border-radius: 16px;
   color: var(--text-soft);
   font-weight: 650;
+  letter-spacing: -0.01em;
   border: 1px solid transparent;
-  transition: transform 0.18s ease, background-color 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .nav-bar a:hover {
   transform: translateX(2px);
-  background: var(--surface-soft);
-  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-soft) 78%, var(--primary-soft));
+  border-color: var(--border-strong);
   color: var(--heading);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .nav-bar a.active {
-  background: linear-gradient(135deg, var(--primary), #3a7ce0);
-  color: white;
-  border-color: transparent;
-  box-shadow: 0 18px 34px rgba(33, 94, 201, 0.24);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary-soft) 88%, transparent), rgba(255, 255, 255, 0.02));
+  color: var(--heading);
+  border-color: color-mix(in srgb, var(--primary) 38%, var(--border-strong));
+  box-shadow: inset 3px 0 0 var(--primary), 0 14px 28px rgba(15, 33, 63, 0.08);
 }
 
 .nav-link-short {
@@ -412,6 +414,7 @@ p {
 .card {
   border-radius: var(--radius-lg);
   padding: 22px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .page-intro {
@@ -600,8 +603,8 @@ button {
   color: white;
   background: linear-gradient(135deg, var(--primary), #3a7ce0);
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(33, 94, 201, 0.18);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, border-color 0.18s ease;
+  box-shadow: 0 8px 18px rgba(33, 94, 201, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
 }
 
 .content-list-item {
@@ -616,10 +619,12 @@ button {
   background: var(--surface-soft);
   border-color: var(--border);
   box-shadow: none;
-  padding: 12px;
+  padding: 14px;
+  min-height: 92px;
 }
 
 .content-list-item:hover {
+  transform: none;
   box-shadow: none;
   border-color: var(--border-strong);
   background: color-mix(in srgb, var(--surface-soft) 88%, var(--primary-soft));
@@ -633,12 +638,29 @@ button {
 
 .content-list-item-copy {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .content-list {
   display: grid;
   gap: 12px;
+}
+
+.content-empty-state {
+  min-height: 176px;
+  align-content: center;
+  background: linear-gradient(180deg, var(--surface-soft), color-mix(in srgb, var(--primary-soft) 40%, var(--surface-soft)));
+}
+
+.vocabulary-list-item,
+.sentence-list-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.vocabulary-list-item strong,
+.sentence-list-item strong {
+  font-size: 1rem;
+  line-height: 1.35;
 }
 
 .content-list-item-thumb {
@@ -680,7 +702,15 @@ button {
 .quick-links a:hover,
 button:hover {
   transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(33, 94, 201, 0.22);
+  box-shadow: 0 10px 20px rgba(33, 94, 201, 0.16);
+}
+
+.button-link:focus-visible,
+.page-intro-actions > a:focus-visible,
+.quick-links a:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(33, 94, 201, 0.14), 0 10px 20px rgba(33, 94, 201, 0.12);
 }
 
 .secondary-button {
@@ -697,12 +727,12 @@ button:hover {
 
 .danger-button {
   background: linear-gradient(135deg, #cb5656, var(--danger));
-  box-shadow: 0 12px 24px rgba(181, 69, 69, 0.2);
+  box-shadow: 0 8px 18px rgba(181, 69, 69, 0.14);
 }
 
 .easy-button {
   background: linear-gradient(135deg, #16906f, var(--success));
-  box-shadow: 0 12px 24px rgba(24, 125, 98, 0.2);
+  box-shadow: 0 8px 18px rgba(24, 125, 98, 0.14);
 }
 
 button:disabled {
@@ -741,7 +771,7 @@ textarea:focus,
 select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 4px rgba(33, 94, 201, 0.14);
+  box-shadow: 0 0 0 4px rgba(33, 94, 201, 0.12), var(--shadow-sm);
 }
 
 label {
@@ -966,13 +996,21 @@ textarea {
   gap: 16px;
 }
 
+.elevated-panel {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 94%, transparent), color-mix(in srgb, var(--surface-soft) 96%, transparent)),
+    var(--surface-accent);
+  border-color: color-mix(in srgb, var(--border-strong) 78%, transparent);
+  box-shadow: 0 14px 34px rgba(15, 33, 63, 0.1);
+}
+
 .flashcard-card {
   transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .flashcard-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgba(15, 33, 63, 0.1);
 }
 
 .flashcard-translation {
@@ -1201,6 +1239,23 @@ textarea {
 .detail-chip-groups {
   display: grid;
   gap: 18px;
+}
+
+.vocabulary-detail-card,
+.sentence-detail-card {
+  gap: 20px;
+}
+
+.vocabulary-hero-copy,
+.sentence-hero-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.vocabulary-reading {
+  color: var(--primary);
+  font-size: 1rem;
+  font-weight: 700;
 }
 
 .auth-page {
