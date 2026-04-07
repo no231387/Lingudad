@@ -344,7 +344,7 @@ function StudySessionPage() {
     }
 
     return (
-      <section className="page-section">
+      <section className="page-section active-study-layout">
         <div className="card study-session-banner">
           <div className="study-session-banner-copy">
             <p className="eyebrow-label">Active study session</p>

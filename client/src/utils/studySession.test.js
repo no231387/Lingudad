@@ -2,26 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { updateStudyQueue } from './studySession.js';
 
-test('requeues the current card near the front when rating is again', () => {
+test('keeps the current card in place when rating is again so it repeats immediately', () => {
   const cards = [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }];
   const result = updateStudyQueue(cards, 0, 'again');
 
   assert.deepEqual(
     result.cards.map((card) => card._id),
-    ['b', 'c', 'a']
+    ['a', 'b', 'c']
   );
   assert.equal(result.nextIndex, 0);
 });
 
-test('requeues again cards after a short delay rather than at the very end for larger queues', () => {
-  const cards = [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }, { _id: 'd' }, { _id: 'e' }];
-  const result = updateStudyQueue(cards, 0, 'again');
+test('keeps the same current index for again when the card was not first', () => {
+  const cards = [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }, { _id: 'd' }];
+  const result = updateStudyQueue(cards, 1, 'again');
 
   assert.deepEqual(
     result.cards.map((card) => card._id),
-    ['b', 'c', 'a', 'd', 'e']
+    ['a', 'b', 'c', 'd']
   );
-  assert.equal(result.nextIndex, 0);
+  assert.equal(result.nextIndex, 1);
 });
 
 test('removes the current card from the queue for good/easy ratings', () => {

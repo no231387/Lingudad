@@ -136,6 +136,7 @@ p {
   display: grid;
   grid-template-columns: 312px minmax(0, 1fr);
   gap: 26px;
+  align-items: start;
 }
 
 .app-sidebar,
@@ -339,6 +340,12 @@ p {
   min-width: 0;
   display: grid;
   gap: 22px;
+  align-content: start;
+  align-self: start;
+}
+
+.app-main-study {
+  gap: 8px;
 }
 
 .topbar {
@@ -353,11 +360,54 @@ p {
 }
 
 .topbar-compact {
-  padding: 12px 18px;
+  padding: 8px 14px;
+  min-height: 0;
+  max-height: 72px;
+  gap: 12px;
+  top: 10px;
+  align-self: start;
+  overflow: hidden;
+  width: min(100%, 980px);
+  justify-self: center;
+  margin-top: 0;
 }
 
 .topbar-title {
   font-size: 1.4rem;
+}
+
+.topbar-compact .topbar-title {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.topbar-compact .eyebrow-label {
+  font-size: 0.64rem;
+}
+
+.topbar-compact .secondary-button,
+.topbar-compact .profile-trigger {
+  min-height: 36px;
+  height: 36px;
+}
+
+.topbar-compact .topbar-leading,
+.topbar-compact .header-actions {
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.topbar-compact .topbar-leading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.topbar-compact .topbar-leading {
+  min-width: 0;
+}
+
+.topbar-compact .header-actions {
+  justify-content: flex-end;
 }
 
 .nav-toggle {
@@ -412,6 +462,12 @@ p {
 .page-content {
   min-width: 0;
   gap: 20px;
+}
+
+.active-study-layout {
+  gap: 8px;
+  align-content: start;
+  margin-top: 0;
 }
 
 .card {
@@ -1115,25 +1171,33 @@ textarea {
   gap: 10px;
 }
 
+.study-session-progress .secondary-button {
+  min-height: 40px;
+}
+
 .study-session-progress .mapped-column-tag {
-  min-height: 42px;
+  min-height: 40px;
 }
 
 .study-session-banner {
+  position: sticky;
+  top: 64px;
+  z-index: 7;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 16px 20px;
+  padding: 10px 16px;
+  border-radius: 20px;
 }
 
 .study-session-banner-copy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
 }
 
 .study-session-banner h2 {
-  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-size: clamp(1.1rem, 1.5vw, 1.45rem);
 }
 
 .study-session-card {
@@ -1438,6 +1502,10 @@ textarea {
 
   .profile-stats {
     grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .study-session-banner {
+    top: 74px;
   }
 }
 

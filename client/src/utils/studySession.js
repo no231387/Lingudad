@@ -18,11 +18,10 @@ export const updateStudyQueue = (cards, currentIndex, rating) => {
   }
 
   if (rating === 'again') {
-    const requeueIndex = Math.min(2, queue.length);
-    queue.splice(requeueIndex, 0, currentCard);
+    queue.splice(currentIndex, 0, currentCard);
     return {
       cards: queue,
-      nextIndex: queue.length > 1 && currentIndex < queue.length ? currentIndex : 0
+      nextIndex: Math.min(currentIndex, queue.length - 1)
     };
   }
 

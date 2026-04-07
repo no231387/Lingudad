@@ -305,7 +305,7 @@ function App() {
         )}
       </aside>
 
-      <div className="app-main">
+      <div className={`app-main ${isStudyRoute ? 'app-main-study' : ''}`.trim()}>
         <header className={`topbar card ${isStudyRoute ? 'topbar-compact' : ''}`.trim()}>
           <div className="topbar-leading">
             <button
