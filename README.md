@@ -1,6 +1,63 @@
 # Lingudad
 
-Lingudad is a DigitalOcean-friendly deployment repo for the Lingua app. It packages the React frontend and Express API into a single root Docker deployment so App Platform can detect it from the repo root.
+Lingudad is the deployment repository for **Lingua**, a source-backed language learning platform built around accurate study data, structured learning flows, and a production-ready web app shell.
+
+## Current features
+
+Current product scope at the end of Phase 2:
+
+- User onboarding with saved personalization:
+  - target language
+  - proficiency level
+  - learning goals
+  - daily practice goal
+- Dashboard with:
+  - continue learning
+  - daily practice
+  - recommended content
+  - deck overview
+- Flashcard system with:
+  - personal decks
+  - official beginner decks
+  - flashcard CRUD
+  - import flow
+  - community flashcards
+  - study sessions with review actions
+- Vocabulary truth layer:
+  - source-backed vocabulary records
+  - search and detail views
+  - recommendation readiness based on user level and goals
+- Sentence layer:
+  - source-backed sentence records
+  - Tatoeba-ready provider structure
+  - sentence detail and vocabulary linking scaffolding
+- Study generation:
+  - vocabulary to flashcard generation
+  - sentence to flashcard generation
+  - vocabulary quiz seed generation
+  - sentence cloze quiz seed generation
+  - provenance preserved end to end
+- Content foundation:
+  - YouTube-backed learning content records
+  - content list and viewer
+  - transcript-ready structure
+  - future linking hooks for vocabulary and sentences
+- UI/system refinements:
+  - responsive app shell
+  - fixed top ribbons
+  - improved Study layout and review flow
+  - performance and interaction polish across key pages
+
+## Architecture notes
+
+- Accuracy first: Lingua does not invent meanings, translations, or language facts.
+- Vocabulary and Sentence remain the truth layers.
+- Content is a contextual learning source, not the truth source.
+- Source attribution is preserved through flashcards, quizzes, vocabulary, sentences, and content where applicable.
+
+## Easter egg
+
+- The content system’s smoke-test video was verified with a Rick Astley link at least once. The bug fix was real even if the embed choice was questionable.
 
 ## Local setup
 
