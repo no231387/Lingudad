@@ -54,9 +54,6 @@ Current product scope at the end of Phase 2:
 - Vocabulary and Sentence remain the truth layers.
 - Content is a contextual learning source, not the truth source.
 - Source attribution is preserved through flashcards, quizzes, vocabulary, sentences, and content where applicable.
-
-## Easter egg
-
 - The content system’s smoke-test video was verified with a Rick Astley link at least once. The bug fix was real even if the embed choice was questionable.
 
 ## Local setup
