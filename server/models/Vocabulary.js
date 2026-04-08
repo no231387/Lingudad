@@ -98,6 +98,8 @@ vocabularySchema.index({ language: 1, sourceProvider: 1, sourceId: 1 }, { unique
 vocabularySchema.index({ language: 1, term: 1 });
 vocabularySchema.index({ language: 1, reading: 1 });
 vocabularySchema.index({ language: 1, difficulty: 1 });
-vocabularySchema.index({ topicTags: 1, registerTags: 1, skillTags: 1 });
+vocabularySchema.index({ topicTags: 1 });
+vocabularySchema.index({ registerTags: 1 });
+vocabularySchema.index({ skillTags: 1 });
 
 module.exports = mongoose.model('Vocabulary', vocabularySchema);

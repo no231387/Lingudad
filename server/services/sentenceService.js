@@ -2,6 +2,7 @@ const Sentence = require('../models/Sentence');
 const Vocabulary = require('../models/Vocabulary');
 const tatoebaAdapter = require('../providers/tatoebaAdapter');
 const { SOURCE_PROVIDERS, SOURCE_TYPES } = require('./sourceCatalogService');
+const { getPresetById } = require('./presetService');
 const { resolveLanguage } = require('./vocabularyService');
 
 const LEVEL_WEIGHTS = Object.freeze({
@@ -89,6 +90,24 @@ const buildSentenceClozeSeed = (sentence) => {
   };
 };
 
+const buildRecommendationDebug = ({ item, preset, presetScore, userScore, breakdown }) => ({
+  registerTags: Array.isArray(item.registerTags) ? item.registerTags : [],
+  skillTags: Array.isArray(item.skillTags) ? item.skillTags : [],
+  difficulty: item.difficulty || '',
+  activePreset: preset
+    ? {
+        id: preset.id,
+        name: preset.name
+      }
+    : null,
+  scoreBreakdown: {
+    userScore,
+    presetScore,
+    totalScore: userScore + presetScore,
+    ...breakdown
+  }
+});
+
 const serializeSentence = (item) => {
   const sentence = typeof item.toObject === 'function' ? item.toObject() : { ...item };
 
@@ -163,6 +182,48 @@ const scoreSentenceForUser = (item, user) => {
   return score;
 };
 
+const scoreSentenceForPreset = (item, preset) => {
+  if (!preset) {
+    return {
+      score: 0,
+      breakdown: {
+        registerMatches: 0,
+        skillMatches: 0,
+        difficultyMatches: 0,
+        registerPenalty: 0,
+        unlabeledRegister: false
+      }
+    };
+  }
+
+  let score = 0;
+  const registers = normalizeTagList(item.registerTags);
+  const skills = normalizeTagList(item.skillTags);
+  const difficulty = normalizeLower(item.difficulty);
+
+  const registerMatches = preset.registerTags.filter((tag) => registers.includes(normalizeLower(tag))).length;
+  const skillMatches = preset.skillTags.filter((tag) => skills.includes(normalizeLower(tag))).length;
+  const difficultyMatches = preset.targetDifficulty.filter((tag) => normalizeLower(tag) === difficulty).length;
+  const hasRegisterTags = registers.length > 0;
+  const registerPenalty = hasRegisterTags && registerMatches === 0 ? -12 : 0;
+
+  score += registerMatches * 14;
+  score += skillMatches * 4;
+  score += difficultyMatches * 2;
+  score += registerPenalty;
+
+  return {
+    score,
+    breakdown: {
+      registerMatches,
+      skillMatches,
+      difficultyMatches,
+      registerPenalty,
+      unlabeledRegister: !hasRegisterTags
+    }
+  };
+};
+
 const searchSentences = async ({ query = {} }) => {
   const filters = buildSearchFilters(query);
   const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
@@ -200,8 +261,9 @@ const getSentenceById = async ({ id, user }) => {
 
 const getRecommendedSentences = async ({ user, query = {} }) => {
   const requestedLanguage = query.language || user?.language || 'Japanese';
+  const preset = getPresetById(query.preset);
   const filters = buildSearchFilters({
-    language: requestedLanguage,
+    language: preset?.language || requestedLanguage,
     difficulty: query.difficulty,
     topic: query.topic,
     register: query.register
@@ -212,10 +274,17 @@ const getRecommendedSentences = async ({ user, query = {} }) => {
     .limit(60);
 
   const sortedItems = items
-    .map((item) => ({ item, score: scoreSentenceForUser(item, user) }))
+    .map((item) => ({
+      item,
+      userScore: scoreSentenceForUser(item, user),
+      presetResult: scoreSentenceForPreset(item, preset)
+    }))
     .sort((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score;
+      const leftScore = left.userScore + left.presetResult.score;
+      const rightScore = right.userScore + right.presetResult.score;
+
+      if (rightScore !== leftScore) {
+        return rightScore - leftScore;
       }
 
       return left.item.text.localeCompare(right.item.text);
@@ -223,11 +292,29 @@ const getRecommendedSentences = async ({ user, query = {} }) => {
     .slice(0, Math.min(20, Math.max(1, Number(query.limit) || 8)));
 
   return {
-    items: sortedItems.map(({ item }) => serializeSentence(item)),
+    items: sortedItems.map(({ item, userScore, presetResult }) => ({
+      ...serializeSentence(item),
+      recommendationDebug: buildRecommendationDebug({
+        item,
+        preset,
+        presetScore: presetResult.score,
+        userScore,
+        breakdown: presetResult.breakdown
+      })
+    })),
     personalization: {
-      language: resolveLanguage(requestedLanguage),
+      language: resolveLanguage(preset?.language || requestedLanguage),
       level: user?.level || '',
-      goals: Array.isArray(user?.goals) ? user.goals : []
+      goals: Array.isArray(user?.goals) ? user.goals : [],
+      preset: preset
+        ? {
+            id: preset.id,
+            name: preset.name,
+            registerTags: preset.registerTags,
+            skillTags: preset.skillTags,
+            targetDifficulty: preset.targetDifficulty
+          }
+        : null
     }
   };
 };

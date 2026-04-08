@@ -120,6 +120,7 @@ export const unsaveLearningContent = (id) => api.delete(`/content/${id}/save`);
 export const searchVocabulary = (params = {}) => api.get('/vocabulary/search', { params });
 export const getVocabulary = (id) => api.get(`/vocabulary/${id}`);
 export const getRecommendedVocabulary = (params = {}) => api.get('/vocabulary/recommended', { params });
+export const getLearningPresets = (params = {}) => api.get('/presets', { params });
 export const searchSentences = (params = {}) => api.get('/sentences/search', { params });
 export const getSentence = (id) => api.get(`/sentences/${id}`);
 export const getRecommendedSentences = (params = {}) => api.get('/sentences/recommended', { params });

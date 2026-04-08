@@ -109,6 +109,29 @@ const isBlankCandidate = (value) => {
   return normalized.length > 0 && /[\p{L}\p{N}]/u.test(normalized);
 };
 
+const SENTENCE_END_PUNCTUATION_REGEX = /[\u3002\uFF01\uFF1F!?]/u;
+const SENTENCE_STRIP_PUNCTUATION_REGEX = /[\u3001\u3002\uFF0C\uFF01\uFF1F!?]/gu;
+
+const findSentenceClauseFallback = (sentence) => {
+  const sentenceText = normalizeText(sentence.text);
+
+  if (!sentenceText) {
+    return '';
+  }
+
+  const clauseCandidates = sentenceText
+    .split(SENTENCE_END_PUNCTUATION_REGEX)
+    .map((part) => normalizeText(part))
+    .filter((part) => isBlankCandidate(part));
+
+  if (clauseCandidates.length) {
+    return clauseCandidates[0];
+  }
+
+  const strippedText = normalizeText(sentenceText.replace(SENTENCE_STRIP_PUNCTUATION_REGEX, ''));
+  return isBlankCandidate(strippedText) ? strippedText : '';
+};
+
 const findSentenceBlankTarget = (sentence) => {
   const linkedCandidates = (sentence.linkedVocabularyIds || [])
     .flatMap((entry) => [entry.term, entry.reading])
@@ -124,7 +147,13 @@ const findSentenceBlankTarget = (sentence) => {
     .map((item) => normalizeText(item))
     .filter((item) => isBlankCandidate(item) && sentence.text.includes(item));
 
-  return tokenCandidates[0] || '';
+  if (tokenCandidates.length) {
+    return tokenCandidates[0];
+  }
+
+  // Fallback for scaffold-mode cloze generation: blank a real sentence clause
+  // directly from the source-backed text when finer-grained token data is absent.
+  return findSentenceClauseFallback(sentence);
 };
 
 const replaceFirstOccurrence = (text, target) => {

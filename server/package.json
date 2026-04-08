@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed": "node seed/seedFlashcards.js"
+    "seed": "node seed/seedFlashcards.js",
+    "seed:test-presets": "node seed/seedTestPresetData.js",
+    "test:sentence-cloze": "node scripts/verifySentenceCloze.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

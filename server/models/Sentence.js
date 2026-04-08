@@ -107,6 +107,9 @@ const sentenceSchema = new mongoose.Schema(
 
 sentenceSchema.index({ language: 1, sourceProvider: 1, sourceId: 1 }, { unique: true });
 sentenceSchema.index({ language: 1, text: 1 });
-sentenceSchema.index({ difficulty: 1, topicTags: 1, registerTags: 1, skillTags: 1 });
+sentenceSchema.index({ difficulty: 1 });
+sentenceSchema.index({ topicTags: 1 });
+sentenceSchema.index({ registerTags: 1 });
+sentenceSchema.index({ skillTags: 1 });
 
 module.exports = mongoose.model('Sentence', sentenceSchema);
