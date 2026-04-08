@@ -1,5 +1,5 @@
 const LearningContent = require('../models/LearningContent');
-const { buildLearningContentPayload, getContentList } = require('../services/contentService');
+const { createContent, getContentDetail, getContentList } = require('../services/contentService');
 
 exports.getLearningContent = async (req, res) => {
   try {
@@ -12,7 +12,7 @@ exports.getLearningContent = async (req, res) => {
 
 exports.getLearningContentById = async (req, res) => {
   try {
-    const item = await LearningContent.findById(req.params.id).populate({ path: 'createdBy', select: 'username language level' });
+    const item = await getContentDetail({ id: req.params.id, user: req.user });
 
     if (!item) {
       return res.status(404).json({ message: 'Learning content not found.' });
@@ -26,20 +26,8 @@ exports.getLearningContentById = async (req, res) => {
 
 exports.createLearningContent = async (req, res) => {
   try {
-    const payload = buildLearningContentPayload({ body: req.body, user: req.user });
-    const existing = await LearningContent.findOne({
-      sourceProvider: payload.sourceProvider,
-      externalId: payload.externalId
-    });
-
-    if (existing) {
-      return res.status(200).json(existing);
-    }
-
-    const item = await LearningContent.create(payload);
-    await item.populate({ path: 'createdBy', select: 'username language level' });
-
-    res.status(201).json(item);
+    const { item, created } = await createContent({ body: req.body, user: req.user });
+    res.status(created ? 201 : 200).json(item);
   } catch (error) {
     res.status(400).json({ message: 'Failed to create learning content.', error: error.message });
   }
