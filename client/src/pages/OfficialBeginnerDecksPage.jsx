@@ -128,7 +128,7 @@ function OfficialBeginnerDecksPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Official decks"
-        title="Shared beginner-friendly learning paths"
+        title="Official decks"
         description="Maintain curated starter decks that everyone in Lingua can browse, open, and learn from."
       />
 

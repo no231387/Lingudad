@@ -41,7 +41,7 @@ function RegisterPage() {
     <section className="page-section auth-page">
       <PageIntro
         eyebrow="Create account"
-        title="Start your Lingua workspace"
+        title="Create account"
         description="Create an account to build decks, save flashcards, import study sets, and track review sessions."
       />
 

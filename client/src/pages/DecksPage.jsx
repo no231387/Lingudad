@@ -193,7 +193,7 @@ function DecksPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Decks"
-        title="Organize study collections with intention"
+        title="Your decks"
         description="Create personal decks, curate the cards inside them, and turn any focused topic into a reusable study flow."
       />
 

@@ -167,7 +167,7 @@ function ImportFlashcardsPage() {
     <section className="page-section import-page">
       <PageIntro
         eyebrow="Import"
-        title="Bring in flashcards with confidence"
+        title="Import flashcards"
         description="Upload or paste structured data, preview the mapping, and import cards into the right deck without guessing what will happen."
       />
 

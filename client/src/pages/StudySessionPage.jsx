@@ -407,9 +407,13 @@ function StudySessionPage() {
                 </div>
               </>
             ) : (
-              <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
-                Reveal Translation
-              </button>
+              <div className="study-review-panel">
+                <p className="study-review-label">Focus on the card first</p>
+                <p className="muted-text study-review-hint">Reveal the answer when you are ready to check recall.</p>
+                <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
+                  Reveal Translation
+                </button>
+              </div>
             )}
           </div>
 
@@ -425,7 +429,7 @@ function StudySessionPage() {
 
   return (
     <section className="page-section">
-      <PageIntro eyebrow="Study" title="Study sessions" description="Start from a preset, a deck, or a custom filter set." />
+      <PageIntro eyebrow="Study" title="Study" description="Start from a preset, a deck, or a custom filter set." />
 
       {isLoadingSetup ? (
         <div className="card">

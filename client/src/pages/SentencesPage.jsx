@@ -223,8 +223,9 @@ function SentencesPage() {
             <div className="card content-viewer-card elevated-panel sentence-detail-card">
               <div className="section-header">
                 <div className="sentence-hero-copy">
-                  <h3>{selectedItem.text}</h3>
-                  <p className="muted-text">{selectedItem.language}</p>
+                  <p className="detail-kicker">Sentence entry</p>
+                  <h3 className="detail-primary-text">{selectedItem.text}</h3>
+                  <p className="muted-text detail-support-copy">{selectedItem.language}</p>
                 </div>
               </div>
 
@@ -304,7 +305,7 @@ function SentencesPage() {
 
               <div className="section-stack-tight">
                 <h4>Source</h4>
-                <p className="muted-text">
+                <p className="muted-text detail-support-copy">
                   {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
                 </p>
               </div>

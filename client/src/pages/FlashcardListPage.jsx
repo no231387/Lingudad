@@ -171,7 +171,7 @@ function FlashcardListPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Flashcards"
-        title="A cleaner place to manage every card"
+        title="Flashcards"
         description="Search, sort, and refine your flashcard library while keeping creation and maintenance actions close at hand."
         actions={
           <>

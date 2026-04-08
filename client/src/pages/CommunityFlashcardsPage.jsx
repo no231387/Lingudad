@@ -47,7 +47,7 @@ function CommunityFlashcardsPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Community"
-        title="Browse cards shared by other learners"
+        title="Community cards"
         description="Explore community-created vocabulary, discover how other users organize topics, and borrow inspiration for your own study system."
       />
 

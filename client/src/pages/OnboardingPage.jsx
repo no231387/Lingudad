@@ -75,7 +75,7 @@ function OnboardingPage() {
     <section className="page-section auth-page">
       <PageIntro
         eyebrow="Onboarding"
-        title="Set up your learning profile"
+        title="Learning profile"
         description="Choose your target language, current level, and study goals."
       />
 

@@ -33,7 +33,7 @@ function LoginPage() {
     <section className="page-section auth-page">
       <PageIntro
         eyebrow="Welcome back"
-        title="Sign in to Lingua"
+        title="Sign in"
         description="Access your flashcards, decks, study sessions, and imports from one focused workspace."
       />
 

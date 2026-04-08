@@ -38,7 +38,7 @@ function AddFlashcardPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Flashcards"
-        title="Create a new flashcard"
+        title="Create flashcard"
         description="Add a word, translation, context, and tags so it fits neatly into your study system."
       />
       <FlashcardForm decks={decks} onSubmit={handleCreate} submitLabel="Create Flashcard" />

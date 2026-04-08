@@ -223,8 +223,9 @@ function VocabularyPage() {
             <div className="card content-viewer-card elevated-panel vocabulary-detail-card">
               <div className="section-header">
                 <div className="vocabulary-hero-copy">
-                  <h3>{selectedItem.term}</h3>
-                  <p className="vocabulary-reading">{selectedItem.reading || 'No reading provided'}</p>
+                  <p className="detail-kicker">Vocabulary entry</p>
+                  <h3 className="detail-primary-text">{selectedItem.term}</h3>
+                  <p className="detail-secondary-text">{selectedItem.reading || 'No reading provided'}</p>
                 </div>
               </div>
 
@@ -302,7 +303,7 @@ function VocabularyPage() {
 
               <div className="section-stack-tight">
                 <h4>Source</h4>
-                <p className="muted-text">
+                <p className="muted-text detail-support-copy">
                   {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
                 </p>
               </div>

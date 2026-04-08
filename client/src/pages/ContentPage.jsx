@@ -331,9 +331,10 @@ function ContentPage() {
             <>
               <div className="card content-viewer-card elevated-panel">
                 <div className="section-header">
-                  <div>
-                    <h3>{selectedContent.title}</h3>
-                    <p className="muted-text">
+                  <div className="detail-block">
+                    <p className="detail-kicker">Selected content</p>
+                    <h3 className="detail-primary-text">{selectedContent.title}</h3>
+                    <p className="muted-text detail-support-copy">
                       {selectedContent.language} | {selectedContent.sourceProvider} | Source ID {selectedContent.sourceId}
                     </p>
                   </div>
@@ -358,7 +359,7 @@ function ContentPage() {
                   </div>
                 )}
 
-                {selectedContent.description ? <p className="muted-text">{selectedContent.description}</p> : null}
+                {selectedContent.description ? <p className="muted-text content-viewer-description">{selectedContent.description}</p> : null}
 
                 <div className="mapping-grid">
                   <div className="subsurface-panel section-stack-tight">

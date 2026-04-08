@@ -76,7 +76,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                       <div key={session._id} className="dashboard-list-row">
                         <div>
                           <strong>{session.deck?.name || 'Mixed session'}</strong>
-                          <p className="muted-text">{new Date(session.completedAt).toLocaleString()}</p>
+                          <p className="muted-text detail-support-copy">{new Date(session.completedAt).toLocaleString()}</p>
                         </div>
                         <span className="mapped-column-tag">{session.reviewedCount} cards</span>
                       </div>
@@ -101,7 +101,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                       <div key={item._id} className="dashboard-list-row">
                         <div>
                           <strong>{item.title}</strong>
-                          <p className="muted-text">{item.sourceProvider}</p>
+                          <p className="muted-text detail-support-copy">{item.sourceProvider}</p>
                         </div>
                         <Link className="button-link secondary-button" to="/content">
                           Open
@@ -201,7 +201,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                   <div key={deck._id} className="dashboard-list-row">
                     <div>
                       <strong>{deck.name}</strong>
-                      <p className="muted-text">{deck.language || 'Language not set'}</p>
+                      <p className="muted-text detail-support-copy">{deck.language || 'Language not set'}</p>
                     </div>
                     <span className="mapped-column-tag">{deck.flashcardCount} cards</span>
                   </div>
