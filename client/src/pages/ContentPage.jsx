@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import FlashcardForm from '../components/FlashcardForm';
 import PageIntro from '../components/PageIntro';
 import {
@@ -18,6 +18,7 @@ const initialContentForm = {
   sourceId: '',
   language: 'Japanese',
   contentType: 'youtube',
+  visibility: 'community',
   difficulty: '',
   description: '',
   topicTags: '',
@@ -25,12 +26,24 @@ const initialContentForm = {
   registerTags: ''
 };
 
+const CONTENT_LIBRARY_VIEWS = [
+  { id: 'community', label: 'Community', description: 'Shared public videos prepared for recommendation and discovery.' },
+  { id: 'my_uploads', label: 'My uploads', description: 'Private media entries only visible to your account.' }
+];
+
 function ContentPage() {
   const { user } = useAuth();
   const [contentItems, setContentItems] = useState([]);
+  const [contentSummary, setContentSummary] = useState({
+    communityCount: 0,
+    myUploadsCount: 0,
+    savedCount: 0,
+    recommendationReadyCount: 0
+  });
   const [selectedContentId, setSelectedContentId] = useState('');
   const [selectedContent, setSelectedContent] = useState(null);
   const [contentForm, setContentForm] = useState(initialContentForm);
+  const [contentView, setContentView] = useState('community');
   const [decks, setDecks] = useState([]);
   const [isSavingContent, setIsSavingContent] = useState(false);
   const [isSavingFlashcard, setIsSavingFlashcard] = useState(false);
@@ -38,20 +51,28 @@ function ContentPage() {
   const [message, setMessage] = useState('');
   const [flashcardFormKey, setFlashcardFormKey] = useState(0);
 
+  const activeView = useMemo(
+    () => CONTENT_LIBRARY_VIEWS.find((view) => view.id === contentView) || CONTENT_LIBRARY_VIEWS[0],
+    [contentView]
+  );
+  const isUploadedType = contentForm.contentType === 'uploaded';
+
   useEffect(() => {
     const loadPageData = async () => {
       try {
         const [{ data: deckData }, { data: contentData }] = await Promise.all([
           getDecks(),
           getLearningContent({
-            language: user?.language || 'Japanese'
+            language: user?.language || 'Japanese',
+            scope: contentView
           })
         ]);
 
         startTransition(() => {
           setDecks(deckData);
-          setContentItems(contentData);
-          setSelectedContentId((current) => current || contentData[0]?._id || '');
+          setContentItems(contentData.items || []);
+          setContentSummary(contentData.summary || {});
+          setSelectedContentId((current) => current || contentData.items?.[0]?._id || '');
         });
       } catch (error) {
         console.error('Failed to load content page:', error);
@@ -59,16 +80,18 @@ function ContentPage() {
     };
 
     loadPageData();
-  }, [user?.language]);
+  }, [contentView, user?.language]);
 
   const refreshContent = async (preferredContentId = '') => {
     const { data } = await getLearningContent({
-      language: user?.language || 'Japanese'
+      language: user?.language || 'Japanese',
+      scope: contentView
     });
 
     startTransition(() => {
-      setContentItems(data);
-      setSelectedContentId((current) => preferredContentId || current || data[0]?._id || '');
+      setContentItems(data.items || []);
+      setContentSummary(data.summary || {});
+      setSelectedContentId((current) => preferredContentId || current || data.items?.[0]?._id || '');
     });
   };
 
@@ -87,6 +110,7 @@ function ContentPage() {
         });
       } catch (error) {
         console.error('Failed to load content detail:', error);
+        setSelectedContent(null);
       } finally {
         setIsLoadingDetail(false);
       }
@@ -94,6 +118,15 @@ function ContentPage() {
 
     loadContentDetail();
   }, [selectedContentId]);
+
+  useEffect(() => {
+    if (isUploadedType && contentForm.visibility !== 'private') {
+      setContentForm((previous) => ({
+        ...previous,
+        visibility: 'private'
+      }));
+    }
+  }, [contentForm.visibility, isUploadedType]);
 
   const handleContentChange = (event) => {
     const { name, value } = event.target;
@@ -112,10 +145,20 @@ function ContentPage() {
       const { data } = await createLearningContent(contentForm);
       setContentForm({
         ...initialContentForm,
-        language: contentForm.language
+        language: contentForm.language,
+        visibility: isUploadedType ? 'private' : 'community'
       });
-      await refreshContent(data._id);
-      setMessage('Content saved.');
+
+      const nextView = data.visibility === 'private' ? 'my_uploads' : 'community';
+
+      if (nextView !== contentView) {
+        setContentView(nextView);
+        setSelectedContentId(data._id);
+      } else {
+        await refreshContent(data._id);
+      }
+
+      setMessage(data.visibility === 'private' ? 'Private upload saved.' : 'Community content saved.');
     } catch (error) {
       setMessage(error.response?.data?.message || 'Could not save content.');
     } finally {
@@ -126,15 +169,14 @@ function ContentPage() {
   const handleToggleSave = async (content) => {
     try {
       setMessage('');
-      const isSaved = content.savedBy?.some((savedUser) => String(savedUser) === String(user?._id));
 
-      if (isSaved) {
+      if (content.isSaved) {
         await unsaveLearningContent(content._id);
       } else {
         await saveLearningContent(content._id);
       }
 
-      await refreshContent();
+      await refreshContent(content._id);
     } catch (error) {
       setMessage(error.response?.data?.message || 'Could not update saved content.');
     }
@@ -167,8 +209,8 @@ function ContentPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Content"
-        title="Content library"
-        description="Store source-backed media, watch it, and create flashcards with source attribution."
+        title="Content Library"
+        description="Guide discovery through public community videos while keeping uploaded user media private and ready for later transcript workflows."
       />
 
       {message ? <div className="card status-panel">{message}</div> : null}
@@ -178,7 +220,9 @@ function ContentPage() {
           <form className="card form-card form-shell elevated-panel" onSubmit={handleCreateContent}>
             <div className="section-stack-tight">
               <h3>Add content</h3>
-              <p className="muted-text">Save a learning source with media metadata so it can support later transcript and linking workflows.</p>
+              <p className="muted-text">
+                Community videos can support future recommendation flows. Uploaded items stay private to your account and are scaffolded for later transcript, deck, and quiz processing.
+              </p>
             </div>
 
             <label>
@@ -190,9 +234,9 @@ function ContentPage() {
               <label>
                 Content type
                 <select name="contentType" value={contentForm.contentType} onChange={handleContentChange}>
-                  <option value="youtube">YouTube</option>
-                  <option value="uploaded">Uploaded</option>
-                  <option value="other">Other</option>
+                  <option value="youtube">YouTube video</option>
+                  <option value="uploaded">Uploaded media</option>
+                  <option value="other">Other source</option>
                 </select>
               </label>
 
@@ -203,6 +247,47 @@ function ContentPage() {
                 </select>
               </label>
             </div>
+
+            <div className="filter-grid">
+              <label>
+                Visibility
+                <select
+                  name="visibility"
+                  value={isUploadedType ? 'private' : contentForm.visibility}
+                  onChange={handleContentChange}
+                  disabled={isUploadedType}
+                >
+                  <option value="community">Community</option>
+                  <option value="private">Private</option>
+                </select>
+              </label>
+
+              <label>
+                Difficulty
+                <select name="difficulty" value={contentForm.difficulty} onChange={handleContentChange}>
+                  <option value="">Not set</option>
+                  <option value="beginner">Beginner</option>
+                  <option value="intermediate">Intermediate</option>
+                  <option value="advanced">Advanced</option>
+                </select>
+              </label>
+            </div>
+
+            {isUploadedType ? (
+              <div className="subsurface-panel content-guidance-card">
+                <strong>Private upload track</strong>
+                <p className="muted-text">Uploaded content is kept private and reserved for your later transcript, deck, and quiz workflows.</p>
+              </div>
+            ) : (
+              <div className="subsurface-panel content-guidance-card">
+                <strong>{contentForm.visibility === 'community' ? 'Community discovery track' : 'Private reference track'}</strong>
+                <p className="muted-text">
+                  {contentForm.visibility === 'community'
+                    ? 'This item can participate in shared discovery and future community recommendations.'
+                    : 'This item will remain visible only to your account and stay out of community recommendation pools.'}
+                </p>
+              </div>
+            )}
 
             <label>
               {contentForm.contentType === 'youtube' ? 'YouTube URL or video ID' : 'Source URL'}
@@ -223,18 +308,6 @@ function ContentPage() {
 
             <div className="filter-grid">
               <label>
-                Difficulty
-                <select name="difficulty" value={contentForm.difficulty} onChange={handleContentChange}>
-                  <option value="">Not set</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="filter-grid">
-              <label>
                 Topic tags
                 <input
                   name="topicTags"
@@ -250,7 +323,7 @@ function ContentPage() {
                   name="skillTags"
                   value={contentForm.skillTags}
                   onChange={handleContentChange}
-                  placeholder="listening, vocabulary"
+                  placeholder="listening, conversation, vocabulary"
                 />
               </label>
             </div>
@@ -261,7 +334,7 @@ function ContentPage() {
                 name="registerTags"
                 value={contentForm.registerTags}
                 onChange={handleContentChange}
-                placeholder="spoken, conversational"
+                placeholder="casual, polite, spoken"
               />
             </label>
 
@@ -276,46 +349,78 @@ function ContentPage() {
           </form>
 
           <div className="card elevated-panel">
+            <div className="section-stack-tight">
+              <h3>Content library</h3>
+              <p className="muted-text">Switch between community-ready videos and your private upload lane.</p>
+            </div>
+
+            <div className="content-view-toggle">
+              {CONTENT_LIBRARY_VIEWS.map((view) => {
+                const count = view.id === 'community' ? contentSummary.communityCount : contentSummary.myUploadsCount;
+
+                return (
+                  <button
+                    key={view.id}
+                    type="button"
+                    className={`selection-card content-view-card ${contentView === view.id ? 'is-selected' : ''}`}
+                    onClick={() => setContentView(view.id)}
+                  >
+                    <span className="selection-card-indicator" aria-hidden="true" />
+                    <span className="option-card-copy">
+                      <span className="option-card-title">{view.label}</span>
+                      <span className="option-card-description">{view.description}</span>
+                      <span className="muted-text">{count || 0} items</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="subsurface-panel content-summary-strip">
+              <span className="mapped-column-tag">{contentSummary.recommendationReadyCount || 0} community-ready</span>
+              <span className="mapped-column-tag">{contentSummary.savedCount || 0} saved</span>
+            </div>
+
             <div className="section-header">
               <div>
-                <h3>Available content</h3>
-                <p className="muted-text">Select a source to watch or use for flashcards.</p>
+                <h3>{activeView.label}</h3>
+                <p className="muted-text">{activeView.description}</p>
               </div>
             </div>
 
             <div className="content-list">
               {contentItems.length === 0 ? (
                 <div className="empty-state content-empty-state">
-                  <h4>No content yet</h4>
-                  <p className="muted-text">Save a YouTube source here to start building a review library you can revisit and turn into flashcards.</p>
+                  <h4>{contentView === 'community' ? 'No community content yet' : 'No private uploads yet'}</h4>
+                  <p className="muted-text">
+                    {contentView === 'community'
+                      ? 'Save a public video to start building the shared discovery library.'
+                      : 'Add an uploaded or private source to prepare your own transcript-ready workspace.'}
+                  </p>
                 </div>
               ) : (
-                contentItems.map((item) => {
-                  const isSaved = item.savedBy?.some((savedUser) => String(savedUser) === String(user?._id));
-
-                  return (
-                    <button
-                      key={item._id}
-                      type="button"
-                      className={`content-list-item ${selectedContentId === item._id ? 'is-selected' : ''}`}
-                      onClick={() => setSelectedContentId(item._id)}
-                    >
-                      <div className="content-list-item-thumb" aria-hidden="true">
-                        {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span>{item.contentType === 'youtube' ? 'YT' : 'SRC'}</span>}
-                      </div>
-                      <div className="content-list-item-copy">
-                        <strong>{item.title}</strong>
-                        <span className="muted-text">
-                          {item.language} | {item.sourceProvider} | {item.difficulty || 'No level'}
-                        </span>
-                        <span className="muted-text">
-                          {item.contentType} | transcript {item.transcriptStatus}
-                        </span>
-                      </div>
-                      <span className="content-list-item-state">{isSaved ? 'Saved' : 'Select'}</span>
-                    </button>
-                  );
-                })
+                contentItems.map((item) => (
+                  <button
+                    key={item._id}
+                    type="button"
+                    className={`content-list-item ${selectedContentId === item._id ? 'is-selected' : ''}`}
+                    onClick={() => setSelectedContentId(item._id)}
+                  >
+                    <div className="content-list-item-thumb" aria-hidden="true">
+                      {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span>{item.contentType === 'youtube' ? 'YT' : 'SRC'}</span>}
+                    </div>
+                    <div className="content-list-item-copy">
+                      <strong>{item.title}</strong>
+                      <span className="muted-text">
+                        {item.language} | {item.sourceProvider} | {item.difficulty || 'No level'}
+                      </span>
+                      <span className="muted-text">
+                        {item.visibilityLabel} | transcript {item.transcriptStatus}
+                      </span>
+                    </div>
+                    <span className="content-list-item-state">{item.visibility === 'community' ? 'Community' : 'Private'}</span>
+                  </button>
+                ))
               )}
             </div>
           </div>
@@ -332,15 +437,19 @@ function ContentPage() {
               <div className="card content-viewer-card elevated-panel">
                 <div className="section-header">
                   <div className="detail-block">
-                    <p className="detail-kicker">Selected content</p>
+                    <p className="detail-kicker">{selectedContent.visibility === 'community' ? 'Community content' : 'Private upload'}</p>
                     <h3 className="detail-primary-text">{selectedContent.title}</h3>
                     <p className="muted-text detail-support-copy">
                       {selectedContent.language} | {selectedContent.sourceProvider} | Source ID {selectedContent.sourceId}
                     </p>
                   </div>
-                  <button type="button" className="secondary-button" onClick={() => handleToggleSave(selectedContent)}>
-                    {selectedContent.isSaved ? 'Remove saved' : 'Save content'}
-                  </button>
+                  {selectedContent.visibility === 'community' ? (
+                    <button type="button" className="secondary-button" onClick={() => handleToggleSave(selectedContent)}>
+                      {selectedContent.isSaved ? 'Remove saved' : 'Save content'}
+                    </button>
+                  ) : (
+                    <span className="mapped-column-tag">Private only</span>
+                  )}
                 </div>
 
                 {selectedContent.contentType === 'youtube' && selectedContent.embedUrl ? (
@@ -355,7 +464,7 @@ function ContentPage() {
                 ) : (
                   <div className="empty-state compact-empty-state">
                     <h4>No embedded viewer</h4>
-                    <p className="muted-text">This content type is stored for future media support, but an embedded viewer is not available yet.</p>
+                    <p className="muted-text">This media entry is stored for later private processing, but an embedded viewer is not available yet.</p>
                   </div>
                 )}
 
@@ -365,15 +474,16 @@ function ContentPage() {
                   <div className="subsurface-panel section-stack-tight">
                     <h4>Content metadata</h4>
                     <p className="muted-text">Type: {selectedContent.contentType}</p>
+                    <p className="muted-text">Visibility: {selectedContent.visibilityLabel}</p>
                     <p className="muted-text">Difficulty: {selectedContent.difficulty || 'Not set'}</p>
                     <p className="muted-text">Transcript: {selectedContent.transcriptStatus}</p>
-                    <p className="muted-text">Available: {selectedContent.transcriptAvailable ? 'Yes' : 'No'}</p>
                   </div>
                   <div className="subsurface-panel section-stack-tight">
-                    <h4>Learning links</h4>
+                    <h4>Pipeline readiness</h4>
+                    <p className="muted-text">Discovery source: {selectedContent.discoverySource}</p>
+                    <p className="muted-text">Community-ready: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
                     <p className="muted-text">Vocabulary links: {selectedContent.linkedVocabularyIds?.length || 0}</p>
                     <p className="muted-text">Sentence links: {selectedContent.linkedSentenceIds?.length || 0}</p>
-                    <p className="muted-text">Learning source: {selectedContent.learningSource ? 'Yes' : 'No'}</p>
                   </div>
                 </div>
 
@@ -430,7 +540,7 @@ function ContentPage() {
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select content</h4>
-              <p className="muted-text">Choose a saved source to review its media and transcript-ready metadata.</p>
+              <p className="muted-text">Choose a community video or a private upload to inspect its media and transcript-ready metadata.</p>
             </div>
           )}
         </div>

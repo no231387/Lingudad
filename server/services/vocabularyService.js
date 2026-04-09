@@ -220,7 +220,9 @@ const searchVocabulary = async ({ query = {} }) => {
   const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
   const filters = buildSearchFilters(query);
   const results = await Vocabulary.find(filters).sort({ term: 1, reading: 1 }).limit(limit);
-  return results.map(serializeVocabulary);
+
+  return results
+    .map(serializeVocabulary);
 };
 
 const getVocabularyById = async ({ id, user }) => {
@@ -251,6 +253,7 @@ const getRecommendedVocabulary = async ({ user, query = {} }) => {
   });
 
   const items = await Vocabulary.find(filters).limit(60);
+
   const sortedItems = items
     .map((item) => ({
       item,

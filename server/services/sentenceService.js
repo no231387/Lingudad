@@ -121,7 +121,9 @@ const serializeSentence = (item) => {
 
 const linkSentenceToVocabulary = async (sentenceInput) => {
   const sentence =
-    sentenceInput instanceof Sentence ? sentenceInput : await Sentence.findById(sentenceInput).populate('linkedVocabularyIds');
+    sentenceInput && typeof sentenceInput === 'object'
+      ? sentenceInput
+      : await Sentence.findById(sentenceInput).populate('linkedVocabularyIds');
 
   if (!sentence) {
     throw new Error('Sentence not found.');
@@ -131,23 +133,21 @@ const linkSentenceToVocabulary = async (sentenceInput) => {
   const vocabCandidates = await Vocabulary.find({
     language: buildLanguageFilter(language)
   })
-    .select('term reading')
+    .select('term reading meanings sourceProvider sourceId language topicTags registerTags skillTags difficulty difficultyProfile partOfSpeech')
     .limit(300);
 
-  const matchedIds = vocabCandidates
+  const linkedVocabulary = vocabCandidates
     .filter((entry) => {
       const term = normalizeText(entry.term);
       const reading = normalizeText(entry.reading);
       return (term && sentence.text.includes(term)) || (reading && sentence.text.includes(reading));
     })
-    .slice(0, 12)
-    .map((entry) => entry._id);
+    .slice(0, 12);
 
-  sentence.linkedVocabularyIds = matchedIds;
-  await sentence.save();
-  await sentence.populate({ path: 'linkedVocabularyIds', select: 'term reading meanings sourceProvider sourceId' });
-
-  return serializeSentence(sentence);
+  return serializeSentence({
+    ...(typeof sentence.toObject === 'function' ? sentence.toObject() : sentence),
+    linkedVocabularyIds: linkedVocabulary
+  });
 };
 
 const scoreSentenceForUser = (item, user) => {
@@ -229,7 +229,7 @@ const searchSentences = async ({ query = {} }) => {
   const limit = Math.min(50, Math.max(1, Number(query.limit) || 20));
   const results = await Sentence.find(filters)
     .populate({ path: 'linkedVocabularyIds', select: 'term reading meanings sourceProvider sourceId' })
-    .sort({ createdAt: -1 })
+    .sort({ text: 1 })
     .limit(limit);
 
   return results.map(serializeSentence);

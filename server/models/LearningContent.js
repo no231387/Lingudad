@@ -27,6 +27,20 @@ const learningContentSchema = new mongoose.Schema(
       enum: ['youtube', 'uploaded', 'other'],
       default: 'youtube'
     },
+    visibility: {
+      type: String,
+      enum: ['community', 'private'],
+      default: 'community'
+    },
+    discoverySource: {
+      type: String,
+      enum: ['manual', 'upload', 'community_seed', 'future_search'],
+      default: 'manual'
+    },
+    recommendationEligible: {
+      type: Boolean,
+      default: false
+    },
     sourceProvider: {
       type: String,
       required: [true, 'Source provider is required'],
@@ -133,8 +147,22 @@ const learningContentSchema = new mongoose.Schema(
   }
 );
 
-learningContentSchema.index({ sourceProvider: 1, sourceId: 1 }, { unique: true });
+learningContentSchema.index(
+  { sourceProvider: 1, sourceId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { visibility: 'community' }
+  }
+);
+learningContentSchema.index(
+  { createdBy: 1, sourceProvider: 1, sourceId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { visibility: 'private' }
+  }
+);
 learningContentSchema.index({ language: 1, contentType: 1, createdAt: -1 });
+learningContentSchema.index({ visibility: 1, recommendationEligible: 1, language: 1, createdAt: -1 });
 learningContentSchema.index({ transcriptStatus: 1, transcriptAvailable: 1 });
 learningContentSchema.index({ topicTags: 1 });
 learningContentSchema.index({ registerTags: 1 });

@@ -665,6 +665,27 @@ small {
   justify-content: flex-start;
 }
 
+.content-view-toggle {
+  display: grid;
+  gap: 10px;
+}
+
+.content-view-card {
+  min-height: 0;
+}
+
+.content-summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.content-guidance-card {
+  display: grid;
+  gap: 4px;
+}
+
 .inline-toggle-button {
   min-height: 34px;
   padding: 8px 12px;

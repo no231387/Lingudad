@@ -177,7 +177,7 @@ function VocabularyPage() {
             <div className="tutorial-step"><strong>1</strong><span>Browse or search sentences and vocabulary</span></div>
             <div className="tutorial-step"><strong>2</strong><span>Select an item to inspect meanings, translations, and tags</span></div>
             <div className="tutorial-step"><strong>3</strong><span>Turn it into a Flashcard or Linquiz to start studying</span></div>
-            <div className="tutorial-step"><strong>4</strong><span>Use presets like Casual, Polite, and Keigo to focus your learning</span></div>
+            <div className="tutorial-step"><strong>4</strong><span>Use guided conversation tracks to match level, register, and communication goals</span></div>
           </div>
         </div>
       ) : null}
@@ -189,7 +189,7 @@ function VocabularyPage() {
           <form className="card form-card form-shell elevated-panel" onSubmit={handleSearch}>
             <div className="section-stack-tight">
               <h3>Find vocabulary to learn from</h3>
-              <p className="muted-text">Start with a preset, then search by term, reading, or meaning when you want something specific.</p>
+              <p className="muted-text">Start with a guided conversation track, then search by term, reading, or meaning when you want something specific.</p>
             </div>
 
             <label>
@@ -226,6 +226,10 @@ function VocabularyPage() {
               <div className="subsurface-panel preset-summary">
                 <strong>{selectedPreset.name}</strong>
                 <p className="muted-text">{selectedPreset.description}</p>
+                <p className="muted-text">Level: {selectedPreset.levelBand || 'Mixed'} | Goal: {selectedPreset.conversationGoal || 'General conversation'}</p>
+                <p className="muted-text">
+                  Register: {selectedPreset.registerTags?.join(', ') || 'mixed'} | Difficulty target: {selectedPreset.targetDifficulty?.join(', ') || 'mixed'}
+                </p>
               </div>
             ) : null}
 

@@ -2,11 +2,13 @@ const SOURCE_TYPES = Object.freeze({
   DICTIONARY: 'dictionary',
   SENTENCE: 'sentence',
   MEDIA: 'media',
+  SHARED_SEED: 'shared_seed',
   USER: 'user'
 });
 
 const SOURCE_PROVIDERS = Object.freeze({
   JMDICT: 'JMdict',
+  LINGUA_CURATED: 'lingua_curated',
   TATOEBA: 'Tatoeba',
   YOUTUBE: 'YouTube',
   USER: 'user'

@@ -2,6 +2,7 @@ const Deck = require('../models/Deck');
 const Flashcard = require('../models/Flashcard');
 const LearningContent = require('../models/LearningContent');
 const StudySession = require('../models/StudySession');
+const { CONTENT_TYPES, CONTENT_VISIBILITY, serializeContent } = require('../services/contentService');
 
 const startOfToday = () => {
   const date = new Date();
@@ -19,12 +20,19 @@ exports.getDashboardOverview = async (req, res) => {
       StudySession.find({ owner: userId }).populate({ path: 'deck', select: 'name language' }).sort({ completedAt: -1 }).limit(3),
       LearningContent.find({
         language: req.user.language || 'Japanese',
-        sourceProvider: 'YouTube',
+        visibility: CONTENT_VISIBILITY.COMMUNITY,
+        recommendationEligible: true,
+        contentType: CONTENT_TYPES.YOUTUBE,
         savedBy: { $ne: userId }
       })
         .sort({ createdAt: -1 })
         .limit(4),
-      LearningContent.find({ savedBy: userId }).sort({ updatedAt: -1 }).limit(2),
+      LearningContent.find({
+        savedBy: userId,
+        $or: [{ visibility: CONTENT_VISIBILITY.COMMUNITY }, { createdBy: userId }]
+      })
+        .sort({ updatedAt: -1 })
+        .limit(2),
       Flashcard.countDocuments({ owner: userId }),
       Flashcard.countDocuments({ owner: userId, proficiency: 5 }),
       Flashcard.countDocuments({ owner: userId, proficiency: 1 })
@@ -51,14 +59,14 @@ exports.getDashboardOverview = async (req, res) => {
       },
       continueLearning: {
         sessions,
-        savedContent
+        savedContent: savedContent.map((item) => serializeContent(item, userId))
       },
       dailyPractice: {
         dailyGoal,
         reviewedToday,
         remaining: Math.max(0, dailyGoal - reviewedToday)
       },
-      recommendedContent,
+      recommendedContent: recommendedContent.map((item) => serializeContent(item, userId)),
       decks: decks.map((deck) => ({
         ...deck.toObject(),
         flashcardCount: deckCountMap.get(String(deck._id)) || 0

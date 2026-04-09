@@ -7,8 +7,19 @@ const CONTENT_TYPES = Object.freeze({
   UPLOADED: 'uploaded',
   OTHER: 'other'
 });
+const CONTENT_VISIBILITY = Object.freeze({
+  COMMUNITY: 'community',
+  PRIVATE: 'private'
+});
+const CONTENT_DISCOVERY_SOURCES = Object.freeze({
+  MANUAL: 'manual',
+  UPLOAD: 'upload',
+  COMMUNITY_SEED: 'community_seed',
+  FUTURE_SEARCH: 'future_search'
+});
 
 const normalizeText = (value) => String(value || '').trim();
+const normalizeLower = (value) => normalizeText(value).toLowerCase();
 
 const normalizeLanguage = (value) => {
   const normalized = normalizeText(value);
@@ -36,7 +47,7 @@ const normalizeBoolean = (value) => {
     return value;
   }
 
-  return ['true', '1', 'yes'].includes(normalizeText(value).toLowerCase());
+  return ['true', '1', 'yes'].includes(normalizeLower(value));
 };
 
 const extractYouTubeVideoId = (value) => {
@@ -83,7 +94,7 @@ const buildYouTubeUrls = (videoId) => ({
 });
 
 const inferContentType = (body = {}) => {
-  const requested = normalizeText(body.contentType).toLowerCase();
+  const requested = normalizeLower(body.contentType);
 
   if ([CONTENT_TYPES.YOUTUBE, CONTENT_TYPES.UPLOADED, CONTENT_TYPES.OTHER].includes(requested)) {
     return requested;
@@ -94,6 +105,44 @@ const inferContentType = (body = {}) => {
   }
 
   return CONTENT_TYPES.OTHER;
+};
+
+const normalizeVisibility = ({ requestedVisibility, contentType }) => {
+  if (contentType === CONTENT_TYPES.UPLOADED) {
+    return CONTENT_VISIBILITY.PRIVATE;
+  }
+
+  return [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.PRIVATE].includes(normalizeLower(requestedVisibility))
+    ? normalizeLower(requestedVisibility)
+    : CONTENT_VISIBILITY.COMMUNITY;
+};
+
+const normalizeDiscoverySource = ({ requestedSource, contentType, visibility }) => {
+  if (contentType === CONTENT_TYPES.UPLOADED) {
+    return CONTENT_DISCOVERY_SOURCES.UPLOAD;
+  }
+
+  const normalized = normalizeLower(requestedSource);
+
+  if (Object.values(CONTENT_DISCOVERY_SOURCES).includes(normalized)) {
+    return normalized;
+  }
+
+  return visibility === CONTENT_VISIBILITY.COMMUNITY
+    ? CONTENT_DISCOVERY_SOURCES.MANUAL
+    : CONTENT_DISCOVERY_SOURCES.MANUAL;
+};
+
+const canUserAccessContent = (item, user) => {
+  if (!item) {
+    return false;
+  }
+
+  if (item.visibility === CONTENT_VISIBILITY.COMMUNITY) {
+    return true;
+  }
+
+  return Boolean(user?._id) && String(item.createdBy?._id || item.createdBy) === String(user._id);
 };
 
 const buildLearningContentPayload = ({ body, user }) => {
@@ -108,6 +157,16 @@ const buildLearningContentPayload = ({ body, user }) => {
   if (!language) {
     throw new Error('Language is required.');
   }
+
+  const visibility = normalizeVisibility({
+    requestedVisibility: body.visibility,
+    contentType
+  });
+  const discoverySource = normalizeDiscoverySource({
+    requestedSource: body.discoverySource,
+    contentType,
+    visibility
+  });
 
   let sourceProvider = normalizeText(body.sourceProvider);
   let sourceId = normalizeText(body.sourceId || body.externalId || body.videoId);
@@ -141,12 +200,17 @@ const buildLearningContentPayload = ({ body, user }) => {
     : 'none';
   const transcriptAvailable = normalizeBoolean(body.transcriptAvailable) || transcriptStatus === 'ready';
   const durationValue = Number(body.duration);
+  const recommendationEligible =
+    visibility === CONTENT_VISIBILITY.COMMUNITY && contentType === CONTENT_TYPES.YOUTUBE && normalizeBoolean(body.recommendationEligible !== undefined ? body.recommendationEligible : true);
 
   return {
     title,
     description: normalizeText(body.description),
     language,
     contentType,
+    visibility,
+    discoverySource,
+    recommendationEligible,
     sourceProvider,
     sourceId,
     externalId: sourceId,
@@ -176,6 +240,8 @@ const serializeContent = (item, userId) => {
   const resolvedEmbedUrl =
     content.embedUrl || (content.contentType === CONTENT_TYPES.YOUTUBE && resolvedSourceId ? buildYouTubeUrls(resolvedSourceId).embedUrl : '');
   const isSaved = content.savedBy?.some((savedUserId) => String(savedUserId) === String(userId));
+  const isOwnedByCurrentUser = Boolean(userId) && String(content.createdBy?._id || content.createdBy) === String(userId);
+  const visibilityLabel = content.visibility === CONTENT_VISIBILITY.PRIVATE ? 'Private upload' : 'Community video';
 
   return {
     ...content,
@@ -184,7 +250,9 @@ const serializeContent = (item, userId) => {
     thumbnail: resolvedThumbnail,
     thumbnailUrl: resolvedThumbnail,
     embedUrl: resolvedEmbedUrl,
-    isSaved
+    isSaved,
+    isOwnedByCurrentUser,
+    visibilityLabel
   };
 };
 
@@ -194,8 +262,23 @@ const contentDetailPopulate = [
   { path: 'linkedSentenceIds', select: 'text translations sourceProvider sourceId' }
 ];
 
+const buildAccessibleContentFilter = (user) => ({
+  $or: [{ visibility: CONTENT_VISIBILITY.COMMUNITY }, { createdBy: user._id }]
+});
+
+const getAccessibleContentDocumentById = async ({ id, user, populate = [] }) => {
+  const item = await LearningContent.findById(id).populate(populate);
+
+  if (!item || !canUserAccessContent(item, user)) {
+    return null;
+  }
+
+  return item;
+};
+
 const getContentList = async ({ user, query = {} }) => {
-  const filters = {};
+  const filters = buildAccessibleContentFilter(user);
+  const scope = normalizeLower(query.scope || 'all');
 
   if (query.language) {
     filters.language = normalizeLanguage(query.language);
@@ -206,22 +289,53 @@ const getContentList = async ({ user, query = {} }) => {
   }
 
   if (query.contentType) {
-    filters.contentType = normalizeText(query.contentType).toLowerCase();
+    filters.contentType = normalizeLower(query.contentType);
+  }
+
+  if (query.visibility && [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.PRIVATE].includes(normalizeLower(query.visibility))) {
+    filters.visibility = normalizeLower(query.visibility);
+  }
+
+  if (scope === 'community') {
+    filters.visibility = CONTENT_VISIBILITY.COMMUNITY;
+  } else if (scope === 'my_uploads') {
+    filters.visibility = CONTENT_VISIBILITY.PRIVATE;
+    filters.createdBy = user._id;
+  } else if (scope === 'saved') {
+    filters.savedBy = user._id;
   }
 
   if (query.saved === 'true') {
     filters.savedBy = user._id;
   }
 
-  const content = await LearningContent.find(filters)
-    .populate({ path: 'createdBy', select: 'username language level goals' })
-    .sort({ createdAt: -1 });
+  const [items, visibleItems] = await Promise.all([
+    LearningContent.find(filters)
+      .populate({ path: 'createdBy', select: 'username language level goals' })
+      .sort({ createdAt: -1 }),
+    LearningContent.find(buildAccessibleContentFilter(user)).select('visibility contentType createdBy recommendationEligible savedBy')
+  ]);
 
-  return content.map((item) => serializeContent(item, user._id));
+  const summary = {
+    totalVisible: visibleItems.length,
+    communityCount: visibleItems.filter((item) => item.visibility === CONTENT_VISIBILITY.COMMUNITY).length,
+    myUploadsCount: visibleItems.filter(
+      (item) => item.visibility === CONTENT_VISIBILITY.PRIVATE && String(item.createdBy) === String(user._id)
+    ).length,
+    savedCount: visibleItems.filter((item) => item.savedBy?.some((savedUserId) => String(savedUserId) === String(user._id))).length,
+    recommendationReadyCount: visibleItems.filter(
+      (item) => item.visibility === CONTENT_VISIBILITY.COMMUNITY && item.recommendationEligible
+    ).length
+  };
+
+  return {
+    items: items.map((item) => serializeContent(item, user._id)),
+    summary
+  };
 };
 
 const getContentDetail = async ({ id, user }) => {
-  const item = await LearningContent.findById(id).populate(contentDetailPopulate);
+  const item = await getAccessibleContentDocumentById({ id, user, populate: contentDetailPopulate });
 
   if (!item) {
     return null;
@@ -232,10 +346,21 @@ const getContentDetail = async ({ id, user }) => {
 
 const createContent = async ({ body, user }) => {
   const payload = buildLearningContentPayload({ body, user });
-  const existing = await LearningContent.findOne({
-    sourceProvider: payload.sourceProvider,
-    $or: [{ sourceId: payload.sourceId }, { externalId: payload.sourceId }]
-  }).populate(contentDetailPopulate);
+  const lookup =
+    payload.visibility === CONTENT_VISIBILITY.COMMUNITY
+      ? {
+          visibility: CONTENT_VISIBILITY.COMMUNITY,
+          sourceProvider: payload.sourceProvider,
+          $or: [{ sourceId: payload.sourceId }, { externalId: payload.sourceId }]
+        }
+      : {
+          visibility: CONTENT_VISIBILITY.PRIVATE,
+          createdBy: user._id,
+          sourceProvider: payload.sourceProvider,
+          $or: [{ sourceId: payload.sourceId }, { externalId: payload.sourceId }]
+        };
+
+  const existing = await LearningContent.findOne(lookup).populate(contentDetailPopulate);
 
   if (existing) {
     return { item: serializeContent(existing, user._id), created: false };
@@ -248,10 +373,15 @@ const createContent = async ({ body, user }) => {
 };
 
 module.exports = {
+  CONTENT_DISCOVERY_SOURCES,
   CONTENT_TYPES,
+  CONTENT_VISIBILITY,
   buildLearningContentPayload,
+  canUserAccessContent,
   createContent,
   extractYouTubeVideoId,
+  getAccessibleContentDocumentById,
   getContentDetail,
-  getContentList
+  getContentList,
+  serializeContent
 };

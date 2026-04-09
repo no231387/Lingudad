@@ -123,7 +123,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="section-header">
               <div>
                 <h3>Recommended Content</h3>
-                <p className="muted-text">Recent source-backed content for your target language.</p>
+                <p className="muted-text">Community-ready videos for your target language.</p>
               </div>
               <Link className="button-link secondary-button" to="/content">
                 View content
@@ -137,7 +137,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                     <div className="section-stack-tight">
                       <h4>{item.title}</h4>
                       <p className="muted-text">
-                        {item.language} | {item.sourceProvider} | {item.difficulty || 'No level'}
+                        {item.language} | {item.sourceProvider} | {item.visibilityLabel} | {item.difficulty || 'No level'}
                       </p>
                     </div>
                     <Link className="button-link" to="/content">
@@ -149,7 +149,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             ) : (
               <div className="empty-state">
                 <h4>No recommended content</h4>
-                <p className="muted-text">Add YouTube content for your target language to populate this section.</p>
+                <p className="muted-text">Add community YouTube content for your target language to populate this section.</p>
               </div>
             )}
           </section>

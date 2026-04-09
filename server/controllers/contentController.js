@@ -1,5 +1,10 @@
-const LearningContent = require('../models/LearningContent');
-const { createContent, getContentDetail, getContentList } = require('../services/contentService');
+const {
+  createContent,
+  getAccessibleContentDocumentById,
+  getContentDetail,
+  getContentList,
+  serializeContent
+} = require('../services/contentService');
 
 exports.getLearningContent = async (req, res) => {
   try {
@@ -35,7 +40,7 @@ exports.createLearningContent = async (req, res) => {
 
 exports.saveLearningContent = async (req, res) => {
   try {
-    const item = await LearningContent.findById(req.params.id);
+    const item = await getAccessibleContentDocumentById({ id: req.params.id, user: req.user });
 
     if (!item) {
       return res.status(404).json({ message: 'Learning content not found.' });
@@ -48,7 +53,7 @@ exports.saveLearningContent = async (req, res) => {
       await item.save();
     }
 
-    res.status(200).json({ message: 'Content saved.', contentId: item._id });
+    res.status(200).json({ message: 'Content saved.', content: serializeContent(item, req.user._id), contentId: item._id });
   } catch (error) {
     res.status(400).json({ message: 'Failed to save content.', error: error.message });
   }
@@ -56,7 +61,7 @@ exports.saveLearningContent = async (req, res) => {
 
 exports.unsaveLearningContent = async (req, res) => {
   try {
-    const item = await LearningContent.findById(req.params.id);
+    const item = await getAccessibleContentDocumentById({ id: req.params.id, user: req.user });
 
     if (!item) {
       return res.status(404).json({ message: 'Learning content not found.' });
@@ -65,7 +70,7 @@ exports.unsaveLearningContent = async (req, res) => {
     item.savedBy = item.savedBy.filter((userId) => String(userId) !== String(req.user._id));
     await item.save();
 
-    res.status(200).json({ message: 'Content removed from saved list.', contentId: item._id });
+    res.status(200).json({ message: 'Content removed from saved list.', content: serializeContent(item, req.user._id), contentId: item._id });
   } catch (error) {
     res.status(400).json({ message: 'Failed to remove saved content.', error: error.message });
   }
