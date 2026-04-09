@@ -28,12 +28,16 @@ function VocabularyPage() {
   const [lastFlashcard, setLastFlashcard] = useState(null);
   const [lastQuiz, setLastQuiz] = useState(null);
   const [isTutorialDismissed, setIsTutorialDismissed] = useState(false);
+  const [isTutorialExpanded, setIsTutorialExpanded] = useState(true);
   const [showPresetSummary, setShowPresetSummary] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
 
   useEffect(() => {
     try {
-      setIsTutorialDismissed(localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true');
+      const isDismissed = localStorage.getItem(TUTORIAL_STORAGE_KEY) === 'true';
+      setIsTutorialDismissed(isDismissed);
+      setIsTutorialExpanded(!isDismissed);
     } catch (error) {
       console.warn('Could not read vocabulary tutorial state:', error);
     }
@@ -87,6 +91,7 @@ function VocabularyPage() {
 
   const dismissTutorial = () => {
     setIsTutorialDismissed(true);
+    setIsTutorialExpanded(false);
 
     try {
       localStorage.setItem(TUTORIAL_STORAGE_KEY, 'true');
@@ -101,6 +106,7 @@ function VocabularyPage() {
     try {
       setIsSearching(true);
       setMessage('');
+      setHasSearched(true);
       const { data } = await searchVocabulary({
         q: query,
         difficulty,
@@ -154,30 +160,66 @@ function VocabularyPage() {
     }
   };
 
+  const primaryItems = hasSearched ? searchResults : recommended;
+  const primaryTitle = hasSearched ? 'Matching vocabulary' : 'Recommended for your preset';
+  const primaryDescription = hasSearched
+    ? 'Search results become the main list so you can compare terms quickly.'
+    : selectedPreset?.description || 'Recommendations based on your current learning focus.';
+  const secondaryTitle = hasSearched ? 'Preset suggestions' : 'Search results';
+  const secondaryDescription = hasSearched
+    ? 'Keep preset recommendations nearby while you inspect a specific term.'
+    : 'Search when you want a specific term, reading, or meaning.';
+  const secondaryItems = hasSearched ? recommended.slice(0, 4) : searchResults.slice(0, 4);
+  const shouldShowCompactTutorial = isTutorialDismissed && !isTutorialExpanded;
+
   return (
     <section className="page-section">
       <PageIntro
         eyebrow="Vocabulary"
         title="Source-backed vocabulary"
-        description="Browse trusted entries, inspect meaning and reading, and turn them into study items."
+        description="Find a term, inspect the details, and turn it into a study item with less visual noise."
       />
 
-      {!isTutorialDismissed ? (
+      {!shouldShowCompactTutorial ? (
         <div className="card elevated-panel tutorial-banner">
           <div className="tutorial-banner-header">
             <div className="section-stack-tight">
-              <h3>How Lingua works</h3>
-              <p className="muted-text">A simple flow for finding vocabulary and turning it into study material.</p>
+              <p className="eyebrow-label">Vocabulary flow</p>
+              <h3>Find, select, study</h3>
+              <p className="muted-text">Use the left tool to narrow the list, select one term in the center, then study from the detail panel.</p>
             </div>
-            <button type="button" className="secondary-button tutorial-dismiss" onClick={dismissTutorial}>
-              Dismiss
-            </button>
+            <div className="tutorial-banner-actions">
+              {isTutorialDismissed ? (
+                <button type="button" className="secondary-button tutorial-dismiss" onClick={() => setIsTutorialExpanded(false)}>
+                  Hide guide
+                </button>
+              ) : (
+                <button type="button" className="secondary-button tutorial-dismiss" onClick={dismissTutorial}>
+                  Minimize for next time
+                </button>
+              )}
+            </div>
           </div>
-          <div className="tutorial-steps">
-            <div className="tutorial-step"><strong>1</strong><span>Browse or search sentences and vocabulary</span></div>
-            <div className="tutorial-step"><strong>2</strong><span>Select an item to inspect meanings, translations, and tags</span></div>
-            <div className="tutorial-step"><strong>3</strong><span>Turn it into a Flashcard or Linquiz to start studying</span></div>
-            <div className="tutorial-step"><strong>4</strong><span>Use guided conversation tracks to match level, register, and communication goals</span></div>
+          {isTutorialExpanded ? (
+            <div className="tutorial-steps tutorial-steps-compact">
+              <div className="tutorial-step"><strong>1</strong><span>Pick a preset or search for a specific term.</span></div>
+              <div className="tutorial-step"><strong>2</strong><span>Select one item from the main list.</span></div>
+              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or Linquiz from the detail panel.</span></div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {shouldShowCompactTutorial ? (
+        <div className="card elevated-panel tutorial-banner tutorial-banner-minimal">
+          <div className="tutorial-banner-header">
+            <div className="section-stack-tight">
+              <p className="eyebrow-label">Vocabulary flow</p>
+              <p className="muted-text">Find, select, study.</p>
+            </div>
+            <button type="button" className="secondary-button tutorial-dismiss" onClick={() => setIsTutorialExpanded(true)}>
+              Show guide
+            </button>
           </div>
         </div>
       ) : null}
@@ -186,105 +228,112 @@ function VocabularyPage() {
 
       <div className={`learning-page-grid ${selectedItem ? 'has-selection' : ''}`}>
         <div className="content-column learning-sidebar-column">
-          <form className="card form-card form-shell elevated-panel" onSubmit={handleSearch}>
+          <form className="card form-card form-shell elevated-panel learning-tool-panel" onSubmit={handleSearch}>
             <div className="section-stack-tight">
-              <h3>Find vocabulary to learn from</h3>
-              <p className="muted-text">Start with a guided conversation track, then search by term, reading, or meaning when you want something specific.</p>
+              <p className="eyebrow-label">Find</p>
+              <h3>Vocabulary tool</h3>
+              <p className="muted-text">Set the preset, enter a term if needed, and keep the search panel compact.</p>
             </div>
 
-            <label>
-              Learning preset
-              <select
-                value={selectedPresetId}
-                onChange={(event) => {
-                  setSelectedPresetId(event.target.value);
-                  setShowPresetSummary(true);
-                }}
-              >
-                {!presets.length ? <option value="">No presets available</option> : null}
-                {presets.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="learning-tool-block">
+              <label>
+                Learning preset
+                <select
+                  value={selectedPresetId}
+                  onChange={(event) => {
+                    setSelectedPresetId(event.target.value);
+                    setShowPresetSummary(true);
+                  }}
+                >
+                  {!presets.length ? <option value="">No presets available</option> : null}
+                  {presets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Search term
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Term, reading, or meaning" />
+              </label>
+
+              <details className="subsurface-panel compact-disclosure" open={showAdvancedFilters} onToggle={(event) => setShowAdvancedFilters(event.currentTarget.open)}>
+                <summary>Advanced filters</summary>
+                <div className="compact-disclosure-content">
+                  <label>
+                    Difficulty
+                    <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
+                      <option value="">Any difficulty</option>
+                      <option value="starter">Starter</option>
+                      <option value="beginner">Beginner</option>
+                      <option value="common">Common</option>
+                      <option value="intermediate">Intermediate</option>
+                      <option value="advanced">Advanced</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
+
+              <button type="submit" disabled={isSearching}>
+                {isSearching ? 'Searching...' : 'Find vocabulary'}
+              </button>
+            </div>
 
             {selectedPreset ? (
-              <div className="inline-toggle-row">
-                <button
-                  type="button"
-                  className="secondary-button inline-toggle-button"
-                  onClick={() => setShowPresetSummary((current) => !current)}
-                >
-                  {showPresetSummary ? 'Hide preset details' : 'Show preset details'}
-                </button>
-              </div>
-            ) : null}
-
-            {selectedPreset && showPresetSummary ? (
-              <div className="subsurface-panel preset-summary">
-                <strong>{selectedPreset.name}</strong>
+              <div className="subsurface-panel preset-summary preset-summary-compact">
+                <div className="preset-summary-header">
+                  <strong>{selectedPreset.name}</strong>
+                  <button
+                    type="button"
+                    className="secondary-button inline-toggle-button"
+                    onClick={() => setShowPresetSummary((current) => !current)}
+                  >
+                    {showPresetSummary ? 'Less' : 'More'}
+                  </button>
+                </div>
                 <p className="muted-text">{selectedPreset.description}</p>
-                <p className="muted-text">Level: {selectedPreset.levelBand || 'Mixed'} | Goal: {selectedPreset.conversationGoal || 'General conversation'}</p>
-                <p className="muted-text">
-                  Register: {selectedPreset.registerTags?.join(', ') || 'mixed'} | Difficulty target: {selectedPreset.targetDifficulty?.join(', ') || 'mixed'}
-                </p>
+                {showPresetSummary ? (
+                  <div className="preset-summary-meta">
+                    <p className="muted-text">Level: {selectedPreset.levelBand || 'Mixed'} | Goal: {selectedPreset.conversationGoal || 'General conversation'}</p>
+                    <p className="muted-text">
+                      Register: {selectedPreset.registerTags?.join(', ') || 'mixed'} | Difficulty target: {selectedPreset.targetDifficulty?.join(', ') || 'mixed'}
+                    </p>
+                  </div>
+                ) : null}
               </div>
             ) : null}
-
-            <label>
-              Search term
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search by term, reading, or meaning" />
-            </label>
-
-            <details className="subsurface-panel compact-disclosure" open={showAdvancedFilters} onToggle={(event) => setShowAdvancedFilters(event.currentTarget.open)}>
-              <summary>Advanced filters</summary>
-              <div className="compact-disclosure-content">
-                <label>
-                  Difficulty
-                  <select value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
-                    <option value="">Any difficulty</option>
-                    <option value="starter">Starter</option>
-                    <option value="beginner">Beginner</option>
-                    <option value="common">Common</option>
-                    <option value="intermediate">Intermediate</option>
-                    <option value="advanced">Advanced</option>
-                  </select>
-                </label>
-              </div>
-            </details>
-
-            <button type="submit" disabled={isSearching}>
-              {isSearching ? 'Searching...' : 'Find vocabulary'}
-            </button>
           </form>
         </div>
 
         <div className="content-column learning-results-column">
-          <div className="card elevated-panel results-panel">
+          <div className="card elevated-panel results-panel results-panel-primary">
             <div className="section-header">
               <div>
-                <h3>Recommended for your preset</h3>
-                <p className="muted-text">
-                  {selectedPreset ? selectedPreset.description : 'Recommendations based on your current learning focus.'}
-                </p>
+                <p className="eyebrow-label">Select</p>
+                <h3>{primaryTitle}</h3>
+                <p className="muted-text">{primaryDescription}</p>
               </div>
             </div>
 
             <div className="content-list">
-              {isLoadingRecommended ? (
+              {!hasSearched && isLoadingRecommended ? (
                 <div className="empty-state compact-empty-state">
                   <h4>Loading recommendations</h4>
                   <p className="muted-text">Fetching vocabulary matched to your preset and profile.</p>
                 </div>
-              ) : recommended.length === 0 ? (
+              ) : primaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>No vocabulary recommendations</h4>
-                  <p className="muted-text">Source-backed vocabulary will appear here after entries are added for your language.</p>
+                  <h4>{hasSearched ? 'No matching vocabulary' : 'No vocabulary recommendations'}</h4>
+                  <p className="muted-text">
+                    {hasSearched
+                      ? 'Try a broader term or remove filters to bring more matches into the main list.'
+                      : 'Source-backed vocabulary will appear here after entries are added for your language.'}
+                  </p>
                 </div>
               ) : (
-                recommended.map((item) => (
+                primaryItems.map((item) => (
                   <button
                     key={item._id}
                     type="button"
@@ -299,7 +348,7 @@ function VocabularyPage() {
                         {item.recommendationDebug?.registerTags?.length ? item.recommendationDebug.registerTags.join(', ') : 'unspecified'}
                       </span>
                     </div>
-                    <span className="content-list-item-state">{item.difficulty || 'Source-backed'}</span>
+                    <span className="content-list-item-state">{hasSearched ? item.sourceProvider : item.difficulty || 'Source-backed'}</span>
                   </button>
                 ))
               )}
@@ -309,19 +358,23 @@ function VocabularyPage() {
           <div className="card elevated-panel results-panel results-panel-secondary">
             <div className="section-header">
               <div>
-                <h3>Matching vocabulary</h3>
-                <p className="muted-text">Use search when you want to inspect a specific term more closely.</p>
+                <h3>{secondaryTitle}</h3>
+                <p className="muted-text">{secondaryDescription}</p>
               </div>
             </div>
 
-            <div className="content-list">
-              {searchResults.length === 0 ? (
+            <div className="content-list content-list-compact">
+              {secondaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>No matching vocabulary yet</h4>
-                  <p className="muted-text">Search for a term, reading, or meaning to populate this list.</p>
+                  <h4>{hasSearched ? 'No preset suggestions yet' : 'No search results yet'}</h4>
+                  <p className="muted-text">
+                    {hasSearched
+                      ? 'Recommendations will appear here when your preset returns source-backed vocabulary.'
+                      : 'Run a search when you want to inspect a specific term, reading, or meaning.'}
+                  </p>
                 </div>
               ) : (
-                searchResults.map((item) => (
+                secondaryItems.map((item) => (
                   <button
                     key={item._id}
                     type="button"
@@ -333,7 +386,7 @@ function VocabularyPage() {
                       <span className="list-secondary-line">{item.reading || 'No reading provided'}</span>
                       <span className="muted-text">{item.meanings?.slice(0, 1).join('; ') || 'No meaning available'}</span>
                     </div>
-                    <span className="content-list-item-state content-list-item-state-muted">{item.sourceProvider}</span>
+                    <span className="content-list-item-state content-list-item-state-muted">{hasSearched ? item.difficulty || 'Source-backed' : item.sourceProvider}</span>
                   </button>
                 ))
               )}
@@ -346,7 +399,7 @@ function VocabularyPage() {
             <div className="card content-viewer-card elevated-panel vocabulary-detail-card">
               <div className="section-header">
                 <div className="vocabulary-hero-copy">
-                  <p className="detail-kicker">Vocabulary entry</p>
+                  <p className="detail-kicker">Inspect</p>
                   <h3 className="detail-primary-text">{selectedItem.term}</h3>
                   <p className="detail-secondary-text">{selectedItem.reading || 'No reading provided'}</p>
                 </div>
@@ -354,8 +407,8 @@ function VocabularyPage() {
 
               <div className="study-action-panel learning-action-panel">
                 <div className="study-action-copy">
-                  <h4>Turn this into a study item</h4>
-                  <p className="muted-text">Create a flashcard for direct review or a Linquiz for quick recall.</p>
+                  <h4>Study this term</h4>
+                  <p className="muted-text">Keep actions close to the content so you can inspect, then act immediately.</p>
                 </div>
                 <div className="study-action-grid">
                   <button type="button" className="study-action-card" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
@@ -369,7 +422,7 @@ function VocabularyPage() {
                 </div>
               </div>
 
-              <div className="section-stack-tight">
+              <div className="detail-section-card">
                 <h4>Meanings</h4>
                 <ul className="stacked-detail-list">
                   {(selectedItem.meanings || []).map((meaning) => (
@@ -379,14 +432,14 @@ function VocabularyPage() {
               </div>
 
               {selectedItem.partOfSpeech?.length ? (
-                <div className="section-stack-tight">
+                <div className="detail-section-card">
                   <h4>Part of speech</h4>
                   <p className="muted-text">{selectedItem.partOfSpeech.join(', ')}</p>
                 </div>
               ) : null}
 
               {selectedItem.skillTags?.length || selectedItem.topicTags?.length || selectedItem.registerTags?.length ? (
-                <details className="subsurface-panel compact-disclosure">
+                <details className="subsurface-panel compact-disclosure detail-section-card">
                   <summary>Tags and learning details</summary>
                   <div className="detail-chip-groups compact-disclosure-content">
                     {selectedItem.registerTags?.length ? (
@@ -429,7 +482,7 @@ function VocabularyPage() {
                 </details>
               ) : null}
 
-              <details className="subsurface-panel compact-disclosure">
+              <details className="subsurface-panel compact-disclosure detail-section-card">
                 <summary>Source and provenance</summary>
                 <div className="compact-disclosure-content">
                   <p className="muted-text detail-support-copy">

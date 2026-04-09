@@ -43,7 +43,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
       <PageIntro
         eyebrow="Home"
         title="Dashboard"
-        description="Continue learning, review daily progress, and open your saved resources."
+        description="Pick up where you left off, see today’s momentum, and open the next useful resource quickly."
         actions={
           <>
             <Link to="/study">Start study session</Link>
@@ -56,11 +56,12 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
 
       <div className="dashboard-grid">
         <div className="dashboard-primary">
-          <section className="card dashboard-section">
+          <section className="card dashboard-section dashboard-focus-card">
             <div className="section-header">
               <div>
-                <h3>Continue Learning</h3>
-                <p className="muted-text">Recent sessions and saved content.</p>
+                <p className="eyebrow-label">Continue</p>
+                <h3>Continue learning</h3>
+                <p className="muted-text">Recent study and saved content stay together so the next move is obvious.</p>
               </div>
             </div>
 
@@ -122,8 +123,8 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
           <section className="card dashboard-section">
             <div className="section-header">
               <div>
-                <h3>Recommended Content</h3>
-                <p className="muted-text">Community-ready videos for your target language.</p>
+                <h3>Recommended content</h3>
+                <p className="muted-text">A lighter secondary lane for community-ready videos.</p>
               </div>
               <Link className="button-link secondary-button" to="/content">
                 View content

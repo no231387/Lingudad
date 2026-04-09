@@ -210,67 +210,73 @@ function ContentPage() {
       <PageIntro
         eyebrow="Content"
         title="Content Library"
-        description="Guide discovery through public community videos while keeping uploaded user media private and ready for later transcript workflows."
+        description="Add a source on the left, then manage and inspect saved content on the right."
       />
 
       {message ? <div className="card status-panel">{message}</div> : null}
 
       <div className="content-page-grid">
-        <div className="content-column">
-          <form className="card form-card form-shell elevated-panel" onSubmit={handleCreateContent}>
+        <div className="content-column content-form-column">
+          <form className="card form-card form-shell elevated-panel content-form-panel" onSubmit={handleCreateContent}>
             <div className="section-stack-tight">
-              <h3>Add content</h3>
-              <p className="muted-text">
-                Community videos can support future recommendation flows. Uploaded items stay private to your account and are scaffolded for later transcript, deck, and quiz processing.
-              </p>
+              <p className="eyebrow-label">Add</p>
+              <h3>Content tool</h3>
+              <p className="muted-text">Keep the form compact: define the source, add tags if useful, then save.</p>
             </div>
 
-            <label>
-              Title
-              <input name="title" value={contentForm.title} onChange={handleContentChange} required />
-            </label>
-
-            <div className="filter-grid">
-              <label>
-                Content type
-                <select name="contentType" value={contentForm.contentType} onChange={handleContentChange}>
-                  <option value="youtube">YouTube video</option>
-                  <option value="uploaded">Uploaded media</option>
-                  <option value="other">Other source</option>
-                </select>
-              </label>
+            <div className="form-section-block">
+              <div className="section-stack-tight">
+                <h4>Basic info</h4>
+                <p className="muted-text">Title, type, language, and visibility.</p>
+              </div>
 
               <label>
-                Language
-                <select name="language" value={contentForm.language} onChange={handleContentChange}>
-                  <option value="Japanese">Japanese</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="filter-grid">
-              <label>
-                Visibility
-                <select
-                  name="visibility"
-                  value={isUploadedType ? 'private' : contentForm.visibility}
-                  onChange={handleContentChange}
-                  disabled={isUploadedType}
-                >
-                  <option value="community">Community</option>
-                  <option value="private">Private</option>
-                </select>
+                Title
+                <input name="title" value={contentForm.title} onChange={handleContentChange} required />
               </label>
 
-              <label>
-                Difficulty
-                <select name="difficulty" value={contentForm.difficulty} onChange={handleContentChange}>
-                  <option value="">Not set</option>
-                  <option value="beginner">Beginner</option>
-                  <option value="intermediate">Intermediate</option>
-                  <option value="advanced">Advanced</option>
-                </select>
-              </label>
+              <div className="filter-grid">
+                <label>
+                  Content type
+                  <select name="contentType" value={contentForm.contentType} onChange={handleContentChange}>
+                    <option value="youtube">YouTube video</option>
+                    <option value="uploaded">Uploaded media</option>
+                    <option value="other">Other source</option>
+                  </select>
+                </label>
+
+                <label>
+                  Language
+                  <select name="language" value={contentForm.language} onChange={handleContentChange}>
+                    <option value="Japanese">Japanese</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="filter-grid">
+                <label>
+                  Visibility
+                  <select
+                    name="visibility"
+                    value={isUploadedType ? 'private' : contentForm.visibility}
+                    onChange={handleContentChange}
+                    disabled={isUploadedType}
+                  >
+                    <option value="community">Community</option>
+                    <option value="private">Private</option>
+                  </select>
+                </label>
+
+                <label>
+                  Difficulty
+                  <select name="difficulty" value={contentForm.difficulty} onChange={handleContentChange}>
+                    <option value="">Not set</option>
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             {isUploadedType ? (
@@ -289,69 +295,86 @@ function ContentPage() {
               </div>
             )}
 
-            <label>
-              {contentForm.contentType === 'youtube' ? 'YouTube URL or video ID' : 'Source URL'}
-              <input name="url" value={contentForm.url} onChange={handleContentChange} required />
-            </label>
-
-            {contentForm.contentType !== 'youtube' ? (
-              <label>
-                Source ID
-                <input
-                  name="sourceId"
-                  value={contentForm.sourceId}
-                  onChange={handleContentChange}
-                  placeholder="Unique identifier for this source"
-                />
-              </label>
-            ) : null}
-
-            <div className="filter-grid">
-              <label>
-                Topic tags
-                <input
-                  name="topicTags"
-                  value={contentForm.topicTags}
-                  onChange={handleContentChange}
-                  placeholder="travel, beginner, daily-life"
-                />
-              </label>
+            <div className="form-section-block">
+              <div className="section-stack-tight">
+                <h4>Source</h4>
+                <p className="muted-text">Tell Lingua where this content comes from.</p>
+              </div>
 
               <label>
-                Skill tags
-                <input
-                  name="skillTags"
-                  value={contentForm.skillTags}
-                  onChange={handleContentChange}
-                  placeholder="listening, conversation, vocabulary"
-                />
+                {contentForm.contentType === 'youtube' ? 'YouTube URL or video ID' : 'Source URL'}
+                <input name="url" value={contentForm.url} onChange={handleContentChange} required />
               </label>
+
+              {contentForm.contentType !== 'youtube' ? (
+                <label>
+                  Source ID
+                  <input
+                    name="sourceId"
+                    value={contentForm.sourceId}
+                    onChange={handleContentChange}
+                    placeholder="Unique identifier for this source"
+                  />
+                </label>
+              ) : null}
             </div>
 
-            <label>
-              Register tags
-              <input
-                name="registerTags"
-                value={contentForm.registerTags}
-                onChange={handleContentChange}
-                placeholder="casual, polite, spoken"
-              />
-            </label>
+            <div className="form-section-block">
+              <div className="section-stack-tight">
+                <h4>Tags</h4>
+                <p className="muted-text">Add only the tags that help with discovery and later study workflows.</p>
+              </div>
 
-            <label>
-              Notes
-              <textarea name="description" value={contentForm.description} onChange={handleContentChange} rows="3" />
-            </label>
+              <div className="filter-grid">
+                <label>
+                  Topic tags
+                  <input
+                    name="topicTags"
+                    value={contentForm.topicTags}
+                    onChange={handleContentChange}
+                    placeholder="travel, beginner, daily-life"
+                  />
+                </label>
+
+                <label>
+                  Skill tags
+                  <input
+                    name="skillTags"
+                    value={contentForm.skillTags}
+                    onChange={handleContentChange}
+                    placeholder="listening, conversation, vocabulary"
+                  />
+                </label>
+              </div>
+
+              <label>
+                Register tags
+                <input
+                  name="registerTags"
+                  value={contentForm.registerTags}
+                  onChange={handleContentChange}
+                  placeholder="casual, polite, spoken"
+                />
+              </label>
+
+              <label>
+                Notes
+                <textarea name="description" value={contentForm.description} onChange={handleContentChange} rows="3" />
+              </label>
+            </div>
 
             <button type="submit" disabled={isSavingContent}>
               {isSavingContent ? 'Saving...' : 'Save content'}
             </button>
           </form>
+        </div>
 
-          <div className="card elevated-panel">
+        <div className="content-column content-library-column">
+          <div className="card elevated-panel content-library-panel">
             <div className="section-stack-tight">
-              <h3>Content library</h3>
-              <p className="muted-text">Switch between community-ready videos and your private upload lane.</p>
+              <p className="eyebrow-label">Watch</p>
+              <h3>Saved content</h3>
+              <p className="muted-text">Switch views, pick one source, and inspect it below.</p>
             </div>
 
             <div className="content-view-toggle">
@@ -424,9 +447,7 @@ function ContentPage() {
               )}
             </div>
           </div>
-        </div>
 
-        <div className="content-column">
           {isLoadingDetail ? (
             <div className="card empty-state empty-state-emphasis">
               <h4>Loading content</h4>
@@ -434,7 +455,7 @@ function ContentPage() {
             </div>
           ) : selectedContent ? (
             <>
-              <div className="card content-viewer-card elevated-panel">
+              <div className="card content-viewer-card elevated-panel content-viewer-panel">
                 <div className="section-header">
                   <div className="detail-block">
                     <p className="detail-kicker">{selectedContent.visibility === 'community' ? 'Community content' : 'Private upload'}</p>
@@ -471,14 +492,14 @@ function ContentPage() {
                 {selectedContent.description ? <p className="muted-text content-viewer-description">{selectedContent.description}</p> : null}
 
                 <div className="mapping-grid">
-                  <div className="subsurface-panel section-stack-tight">
+                  <div className="subsurface-panel section-stack-tight detail-section-card">
                     <h4>Content metadata</h4>
                     <p className="muted-text">Type: {selectedContent.contentType}</p>
                     <p className="muted-text">Visibility: {selectedContent.visibilityLabel}</p>
                     <p className="muted-text">Difficulty: {selectedContent.difficulty || 'Not set'}</p>
                     <p className="muted-text">Transcript: {selectedContent.transcriptStatus}</p>
                   </div>
-                  <div className="subsurface-panel section-stack-tight">
+                  <div className="subsurface-panel section-stack-tight detail-section-card">
                     <h4>Pipeline readiness</h4>
                     <p className="muted-text">Discovery source: {selectedContent.discoverySource}</p>
                     <p className="muted-text">Community-ready: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
@@ -535,6 +556,8 @@ function ContentPage() {
                 decks={decks}
                 onSubmit={handleCreateFlashcardFromContent}
                 submitLabel={isSavingFlashcard ? 'Creating...' : 'Create Flashcard'}
+                layout="compact"
+                className="elevated-panel content-flashcard-panel"
               />
             </>
           ) : (

@@ -308,6 +308,12 @@ function StudySessionPage() {
     ],
     [availableCards]
   );
+  const primaryPreset =
+    presetSessions.find((preset) => preset.id === 'learning' && preset.cards.length > 0) ||
+    presetSessions.find((preset) => preset.id === 'new' && preset.cards.length > 0) ||
+    presetSessions.find((preset) => preset.cards.length > 0) ||
+    presetSessions[0];
+  const secondaryPresets = presetSessions.filter((preset) => preset.id !== primaryPreset?.id);
 
   if (activeSessionMeta) {
     if (activeCards.length === 0) {
@@ -429,7 +435,7 @@ function StudySessionPage() {
 
   return (
     <section className="page-section">
-      <PageIntro eyebrow="Study" title="Study" description="Start from a preset, a deck, or a custom filter set." />
+      <PageIntro eyebrow="Study" title="Study" description="Start with one clear session option, then use decks, tags, or filters when you need them." />
 
       {isLoadingSetup ? (
         <div className="card">
@@ -437,32 +443,51 @@ function StudySessionPage() {
         </div>
       ) : (
         <>
-          <div className="card">
+          <div className="card elevated-panel study-primary-panel">
             <div className="section-header">
               <div>
-                <h3>Quick Start</h3>
-                <p className="muted-text">Jump into a premade study session based on your collection.</p>
+                <p className="eyebrow-label">Start</p>
+                <h3>Start here</h3>
+                <p className="muted-text">Lead with the strongest next session instead of making every option compete equally.</p>
               </div>
             </div>
-            <div className="list-grid study-preset-grid">
-              {presetSessions.map((preset) => (
-                <article key={preset.id} className="card study-preset-card">
-                  <h4>{preset.title}</h4>
-                  <p className="muted-text">{preset.description}</p>
-                  <p className="study-preset-count">{preset.cards.length} cards</p>
-                  <button type="button" onClick={() => launchPreset(preset)} disabled={preset.cards.length === 0}>
-                    Start Session
-                  </button>
+
+            <div className="study-start-hero">
+              <div className="study-start-copy">
+                <h4>{primaryPreset.title}</h4>
+                <p className="muted-text">{primaryPreset.description}</p>
+              </div>
+              <div className="study-start-meta">
+                <p className="study-preset-count">{primaryPreset.cards.length} cards</p>
+                <button type="button" onClick={() => launchPreset(primaryPreset)} disabled={primaryPreset.cards.length === 0}>
+                  Start Session
+                </button>
+              </div>
+            </div>
+
+            <div className="study-secondary-actions">
+              {secondaryPresets.map((preset) => (
+                <article key={preset.id} className="subsurface-panel study-secondary-card">
+                  <div className="section-stack-tight">
+                    <h4>{preset.title}</h4>
+                    <p className="muted-text">{preset.description}</p>
+                  </div>
+                  <div className="study-secondary-card-footer">
+                    <span className="mapped-column-tag">{preset.cards.length} cards</span>
+                    <button type="button" className="secondary-button" onClick={() => launchPreset(preset)} disabled={preset.cards.length === 0}>
+                      Start
+                    </button>
+                  </div>
                 </article>
               ))}
             </div>
           </div>
 
-          <div className="card">
+          <div className="card study-secondary-panel">
             <div className="section-header">
               <div>
-                <h3>Study by Deck</h3>
-                <p className="muted-text">Use your saved decks as one-click study sessions.</p>
+                <h3>Continue by deck</h3>
+                <p className="muted-text">Use saved decks as lightweight one-click session starters.</p>
               </div>
             </div>
             <div className="list-grid study-preset-grid">
@@ -496,11 +521,11 @@ function StudySessionPage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card study-secondary-panel">
             <div className="section-header">
               <div>
-                <h3>Study by Tag</h3>
-                <p className="muted-text">Start fast with the tags you use most.</p>
+                <h3>Continue by tag</h3>
+                <p className="muted-text">Use the tags you rely on most when you want a narrower session.</p>
               </div>
             </div>
             <div className="list-grid study-preset-grid">
@@ -534,7 +559,7 @@ function StudySessionPage() {
           </div>
 
           <form
-            className="card form-card study-builder-card"
+            className="card form-card study-builder-card study-secondary-panel"
             onSubmit={(event) => {
               event.preventDefault();
               handleStartCustomSession();
@@ -542,8 +567,8 @@ function StudySessionPage() {
           >
             <div className="section-header">
               <div>
-                <h3>Build Your Own Session</h3>
-                <p className="muted-text">Combine filters to build a focused review set.</p>
+                <h3>Custom session</h3>
+                <p className="muted-text">Use filters only when the quick starts above are not enough.</p>
               </div>
             </div>
 
