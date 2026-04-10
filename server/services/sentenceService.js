@@ -3,21 +3,8 @@ const Vocabulary = require('../models/Vocabulary');
 const tatoebaAdapter = require('../providers/tatoebaAdapter');
 const { SOURCE_PROVIDERS, SOURCE_TYPES } = require('./sourceCatalogService');
 const { getPresetById } = require('./presetService');
+const { rankRecommendationItems } = require('./learningEngineService');
 const { resolveLanguage } = require('./vocabularyService');
-
-const LEVEL_WEIGHTS = Object.freeze({
-  beginner: ['starter', 'beginner', 'basic'],
-  intermediate: ['intermediate', 'common'],
-  advanced: ['advanced', 'rare', 'broad']
-});
-
-const GOAL_WEIGHT_RULES = Object.freeze({
-  reading: ['reading', 'written', 'kanji'],
-  listening: ['listening', 'spoken', 'common'],
-  vocabulary: ['vocabulary', 'core_vocab', 'context'],
-  speaking: ['speaking', 'spoken', 'dialogue'],
-  kanji: ['kanji', 'written']
-});
 
 const normalizeText = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalizeText(value).toLowerCase();
@@ -90,7 +77,7 @@ const buildSentenceClozeSeed = (sentence) => {
   };
 };
 
-const buildRecommendationDebug = ({ item, preset, presetScore, userScore, breakdown }) => ({
+const buildRecommendationDebug = ({ item, preset, scoreBreakdown }) => ({
   registerTags: Array.isArray(item.registerTags) ? item.registerTags : [],
   skillTags: Array.isArray(item.skillTags) ? item.skillTags : [],
   difficulty: item.difficulty || '',
@@ -100,12 +87,7 @@ const buildRecommendationDebug = ({ item, preset, presetScore, userScore, breakd
         name: preset.name
       }
     : null,
-  scoreBreakdown: {
-    userScore,
-    presetScore,
-    totalScore: userScore + presetScore,
-    ...breakdown
-  }
+  scoreBreakdown
 });
 
 const serializeSentence = (item) => {
@@ -148,80 +130,6 @@ const linkSentenceToVocabulary = async (sentenceInput) => {
     ...(typeof sentence.toObject === 'function' ? sentence.toObject() : sentence),
     linkedVocabularyIds: linkedVocabulary
   });
-};
-
-const scoreSentenceForUser = (item, user) => {
-  let score = 0;
-  const difficulty = normalizeLower(item.difficulty);
-  const userLevel = normalizeLower(user?.level);
-  const goals = normalizeTagList(user?.goals);
-  const topics = normalizeTagList(item.topicTags);
-  const registers = normalizeTagList(item.registerTags);
-  const skills = normalizeTagList(item.skillTags);
-
-  if (LEVEL_WEIGHTS[userLevel]?.includes(difficulty)) {
-    score += 4;
-  } else if (difficulty === 'common') {
-    score += 2;
-  } else if (!difficulty && userLevel === 'beginner') {
-    score += 1;
-  }
-
-  goals.forEach((goal) => {
-    const weighted = GOAL_WEIGHT_RULES[goal] || [];
-
-    if (weighted.some((tag) => skills.includes(tag) || topics.includes(tag) || registers.includes(tag))) {
-      score += 3;
-    }
-  });
-
-  if (item.linkedVocabularyIds?.length) {
-    score += 1;
-  }
-
-  return score;
-};
-
-const scoreSentenceForPreset = (item, preset) => {
-  if (!preset) {
-    return {
-      score: 0,
-      breakdown: {
-        registerMatches: 0,
-        skillMatches: 0,
-        difficultyMatches: 0,
-        registerPenalty: 0,
-        unlabeledRegister: false
-      }
-    };
-  }
-
-  let score = 0;
-  const registers = normalizeTagList(item.registerTags);
-  const skills = normalizeTagList(item.skillTags);
-  const difficulty = normalizeLower(item.difficulty);
-
-  const registerMatches = preset.registerTags.filter((tag) => registers.includes(normalizeLower(tag))).length;
-  const skillMatches = preset.skillTags.filter((tag) => skills.includes(normalizeLower(tag))).length;
-  const difficultyMatches = preset.targetDifficulty.filter((tag) => normalizeLower(tag) === difficulty).length;
-  const hasRegisterTags = registers.length > 0;
-  const registerPenalty = hasRegisterTags && registerMatches === 0 ? -12 : 0;
-
-  score += registerMatches * 14;
-  score += skillMatches * 4;
-  score += difficultyMatches * 2;
-  score += registerPenalty;
-
-  return {
-    score,
-    breakdown: {
-      registerMatches,
-      skillMatches,
-      difficultyMatches,
-      registerPenalty,
-      unlabeledRegister: !hasRegisterTags
-    }
-  };
 };
 
 const searchSentences = async ({ query = {} }) => {
@@ -272,34 +180,25 @@ const getRecommendedSentences = async ({ user, query = {} }) => {
   const items = await Sentence.find(filters)
     .populate({ path: 'linkedVocabularyIds', select: 'term reading meanings sourceProvider sourceId' })
     .limit(60);
+  const rankedItems = await rankRecommendationItems({
+    user,
+    preset,
+    items,
+    itemType: 'sentence',
+    modelName: 'Sentence',
+    serializeItem: serializeSentence,
+    tieBreaker: (left, right) => left.text.localeCompare(right.text)
+  });
 
-  const sortedItems = items
-    .map((item) => ({
-      item,
-      userScore: scoreSentenceForUser(item, user),
-      presetResult: scoreSentenceForPreset(item, preset)
-    }))
-    .sort((left, right) => {
-      const leftScore = left.userScore + left.presetResult.score;
-      const rightScore = right.userScore + right.presetResult.score;
-
-      if (rightScore !== leftScore) {
-        return rightScore - leftScore;
-      }
-
-      return left.item.text.localeCompare(right.item.text);
-    })
-    .slice(0, Math.min(20, Math.max(1, Number(query.limit) || 8)));
+  const sortedItems = rankedItems.slice(0, Math.min(20, Math.max(1, Number(query.limit) || 8)));
 
   return {
-    items: sortedItems.map(({ item, userScore, presetResult }) => ({
-      ...serializeSentence(item),
+    items: sortedItems.map(({ item, serializedItem, recommendationDebug }) => ({
+      ...serializedItem,
       recommendationDebug: buildRecommendationDebug({
         item,
         preset,
-        presetScore: presetResult.score,
-        userScore,
-        breakdown: presetResult.breakdown
+        scoreBreakdown: recommendationDebug.scoreBreakdown
       })
     })),
     personalization: {

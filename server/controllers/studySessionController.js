@@ -29,6 +29,8 @@ exports.createStudySession = async (req, res) => {
     const goodCount = Number(req.body.goodCount || 0);
     const easyCount = Number(req.body.easyCount || 0);
     const deckId = req.body.deck || null;
+    const presetId = String(req.body.presetId || '').trim();
+    const shapingStrategy = String(req.body.shapingStrategy || '').trim();
 
     if (flashcardIds.length > 0) {
       const flashcards = await Flashcard.find({
@@ -52,6 +54,8 @@ exports.createStudySession = async (req, res) => {
     const session = await StudySession.create({
       owner: req.user._id,
       deck: deckId,
+      presetId,
+      shapingStrategy,
       flashcards: flashcardIds,
       reviewedCount,
       againCount,

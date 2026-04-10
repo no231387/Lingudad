@@ -1,5 +1,6 @@
 const Flashcard = require('../models/Flashcard');
 const QuizItem = require('../models/QuizItem');
+const LearningContent = require('../models/LearningContent');
 const { getVocabularyById } = require('./vocabularyService');
 const { getSentenceById } = require('./sentenceService');
 
@@ -218,11 +219,111 @@ const createQuizFromSentence = async ({ id, user }) => {
   return QuizItem.create(buildSentenceQuizPayload(sentence, user));
 };
 
+const mergeContentStudyMetadata = ({ content, payload }) => ({
+  ...payload,
+  sourceType: 'media',
+  sourceProvider: content.sourceProvider,
+  sourceId: String(content._id),
+  topicTags: uniqueValues([...(payload.topicTags || []), ...(content.topicTags || [])]),
+  registerTags: uniqueValues([...(payload.registerTags || []), ...(content.registerTags || [])]),
+  skillTags: uniqueValues([...(payload.skillTags || []), ...(content.skillTags || [])]),
+  difficulty: normalizeText(content.difficulty) || normalizeText(payload.difficulty),
+  exampleSentence: payload.exampleSentence || normalizeText(content.title)
+});
+
+const createFlashcardsFromContent = async ({ id, user, deckId = null }) => {
+  const content = await LearningContent.findById(id)
+    .populate({ path: 'linkedVocabularyIds', select: 'term reading meanings language topicTags registerTags skillTags difficulty sourceProvider sourceType sourceId' })
+    .populate({ path: 'linkedSentenceIds', select: 'text translations language topicTags registerTags skillTags difficulty sourceProvider sourceType sourceId linkedVocabularyIds' });
+
+  if (!content) {
+    throw new Error('Learning content not found.');
+  }
+
+  if (content.visibility === 'private' && String(content.createdBy) !== String(user._id)) {
+    throw new Error('You can only generate study from private content you own.');
+  }
+
+  const sourceBackedSeeds = [
+    ...(content.linkedVocabularyIds || []).map((entry) => ({
+      key: `Vocabulary:${String(entry._id)}`,
+      payload: mergeContentStudyMetadata({
+        content,
+        payload: buildVocabularyFlashcardPayload(entry, user)
+      })
+    })),
+    ...(content.linkedSentenceIds || []).map((entry) => ({
+      key: `Sentence:${String(entry._id)}`,
+      payload: mergeContentStudyMetadata({
+        content,
+        payload: buildSentenceFlashcardPayload(entry, user)
+      })
+    }))
+  ];
+
+  if (sourceBackedSeeds.length === 0) {
+    return {
+      created: [],
+      skipped: [],
+      createdCount: 0,
+      skippedCount: 0,
+      message: 'No linked source-backed vocabulary or sentences are attached to this content yet.'
+    };
+  }
+
+  const existingFlashcards = await Flashcard.find({
+    owner: user._id,
+    sourceProvider: content.sourceProvider,
+    sourceId: String(content._id),
+    $or: sourceBackedSeeds.map((entry) => ({
+      generatedFromModel: entry.key.split(':')[0],
+      generatedFromId: entry.key.split(':')[1]
+    }))
+  }).select('generatedFromModel generatedFromId');
+
+  const existingKeys = new Set(
+    existingFlashcards.map((flashcard) => `${normalizeText(flashcard.generatedFromModel)}:${normalizeText(flashcard.generatedFromId)}`)
+  );
+
+  const created = [];
+  const skipped = [];
+
+  for (const entry of sourceBackedSeeds) {
+    if (existingKeys.has(entry.key)) {
+      skipped.push({
+        reason: 'already_exists',
+        generatedFrom: entry.key
+      });
+      continue;
+    }
+
+    const payload = {
+      ...entry.payload,
+      deck: deckId || null
+    };
+    const flashcard = await Flashcard.create(payload);
+    await flashcard.populate(FLASHCARD_POPULATION);
+    created.push(flashcard);
+  }
+
+  return {
+    created,
+    skipped,
+    createdCount: created.length,
+    skippedCount: skipped.length,
+    message:
+      created.length > 0
+        ? `Created ${created.length} flashcard${created.length === 1 ? '' : 's'} from linked trusted study sources.`
+        : 'All linked study items from this content were already in your flashcards.'
+  };
+};
+
 module.exports = {
   buildSentenceFlashcardPayload,
   buildSentenceQuizPayload,
   buildVocabularyFlashcardPayload,
   buildVocabularyQuizPayload,
+  createFlashcardsFromContent,
   createFlashcardFromSentence,
   createFlashcardFromVocabulary,
   createQuizFromSentence,

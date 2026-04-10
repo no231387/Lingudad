@@ -100,6 +100,8 @@ const PRESETS = Object.freeze([
   }
 ]);
 
+const { rankPresetsForUser } = require('./learningEngineService');
+
 const normalizeText = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalizeText(value).toLowerCase();
 
@@ -118,8 +120,23 @@ const getPresetById = (presetId) => {
   return PRESETS.find((preset) => preset.id === normalizedId) || null;
 };
 
+const getRecommendedPresets = ({ user, language, limit = 4 }) => {
+  const presets = getPresets({ language: language || user?.language || 'Japanese' });
+  const rankedPresets = rankPresetsForUser({
+    user,
+    presets,
+    tieBreaker: (left, right) => left.name.localeCompare(right.name)
+  });
+
+  return rankedPresets.slice(0, Math.min(10, Math.max(1, Number(limit) || 4))).map(({ item, recommendationDebug }) => ({
+    ...item,
+    recommendationDebug
+  }));
+};
+
 module.exports = {
   getPresetById,
   getPresets,
+  getRecommendedPresets,
   PRESETS
 };

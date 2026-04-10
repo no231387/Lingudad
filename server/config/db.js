@@ -2,18 +2,25 @@ const mongoose = require('mongoose');
 
 const removeLegacyLearningContentIndexes = async (connection) => {
   const collection = connection.db.collection('learningcontents');
-  const legacyIndexes = ['topicTags_1_registerTags_1_skillTags_1', 'sourceProvider_1_sourceId_1'];
+  const removableLegacyIndexes = ['topicTags_1_registerTags_1_skillTags_1', 'sourceProvider_1_sourceId_1', 'sourceProvider_1_sourceId_1_1'];
 
   try {
     const indexes = await collection.indexes();
 
-    for (const indexName of legacyIndexes) {
+    for (const indexName of removableLegacyIndexes) {
       const hasLegacyIndex = indexes.some((index) => index.name === indexName);
 
       if (hasLegacyIndex) {
         await collection.dropIndex(indexName);
         console.log(`Removed legacy learning content index: ${indexName}`);
       }
+    }
+
+    const textIndex = indexes.find((index) => index.name === 'title_text_description_text_sourceId_text_sourceUrl_text');
+
+    if (textIndex && textIndex.language_override !== '_textLanguageOverride') {
+      await collection.dropIndex(textIndex.name);
+      console.log(`Removed legacy learning content index: ${textIndex.name}`);
     }
   } catch (error) {
     if (error.codeName !== 'NamespaceNotFound') {

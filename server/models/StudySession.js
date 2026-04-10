@@ -12,6 +12,16 @@ const studySessionSchema = new mongoose.Schema(
       ref: 'Deck',
       default: null
     },
+    presetId: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    shapingStrategy: {
+      type: String,
+      default: '',
+      trim: true
+    },
     flashcards: [
       {
         type: mongoose.Schema.Types.ObjectId,

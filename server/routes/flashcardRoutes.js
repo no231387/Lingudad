@@ -9,7 +9,9 @@ const {
   updateProficiency,
   resetFlashcardProficiency,
   reviewFlashcard,
+  recordStudyFeedback,
   getDashboardStats,
+  shapeStudySession,
   bulkImportFlashcards,
   removeDuplicateWords,
   getCommunityFlashcards,
@@ -22,6 +24,7 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/stats', getDashboardStats);
+router.post('/study-shape', shapeStudySession);
 router.get('/community', getCommunityFlashcards);
 router.post('/from-vocabulary/:id', createFlashcardFromVocabulary);
 router.post('/from-sentence/:id', createFlashcardFromSentence);
@@ -32,5 +35,6 @@ router.route('/:id').get(getFlashcardById).put(updateFlashcard).delete(deleteFla
 router.patch('/:id/proficiency', updateProficiency);
 router.patch('/:id/reset-proficiency', resetFlashcardProficiency);
 router.patch('/:id/review', reviewFlashcard);
+router.patch('/:id/study-feedback', recordStudyFeedback);
 
 module.exports = router;

@@ -1,8 +1,13 @@
 const express = require('express');
 const {
   createLearningContent,
+  generateFlashcardsFromContent,
+  getContentTranscriptSegments,
   getLearningContent,
   getLearningContentById,
+  getRecommendedLearningContent,
+  getTranscriptBackedStudyPack,
+  saveContentTranscriptSegments,
   saveLearningContent,
   unsaveLearningContent
 } = require('../controllers/contentController');
@@ -12,8 +17,12 @@ const router = express.Router();
 
 router.use(protect);
 
+router.get('/recommended', getRecommendedLearningContent);
 router.route('/').get(getLearningContent).post(createLearningContent);
 router.get('/:id', getLearningContentById);
+router.get('/:id/study-pack', getTranscriptBackedStudyPack);
+router.route('/:id/transcript-segments').get(getContentTranscriptSegments).post(saveContentTranscriptSegments);
+router.post('/:id/generate-flashcards', generateFlashcardsFromContent);
 router.post('/:id/save', saveLearningContent);
 router.delete('/:id/save', unsaveLearningContent);
 

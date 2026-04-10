@@ -1,7 +1,18 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { createStudySession, getDecks, getFlashcards, getTags, reviewFlashcard } from '../services/flashcardService';
+import {
+  createStudySession,
+  getDecks,
+  getFlashcards,
+  getLearningPresets,
+  getTags,
+  recordFlashcardStudyFeedback,
+  reviewFlashcard,
+  shapeStudySessionFlashcards
+} from '../services/flashcardService';
+import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
+import { useAuth } from '../context/AuthContext';
 import { updateStudyQueue } from '../utils/studySession';
 
 const customSessionDefaults = {
@@ -48,13 +59,17 @@ const applyProficiencyFilter = (cards, proficiencyMode) => {
 };
 
 function StudySessionPage() {
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const selectedDeckId = searchParams.get('deck') || '';
   const hasAutoStartedDeck = useRef(false);
+  const cardSeenAtRef = useRef(Date.now());
   const [availableCards, setAvailableCards] = useState([]);
   const [decks, setDecks] = useState([]);
   const [tags, setTags] = useState([]);
+  const [presets, setPresets] = useState([]);
   const [isLoadingSetup, setIsLoadingSetup] = useState(true);
+  const [isPreparingSession, setIsPreparingSession] = useState(false);
   const [activeCards, setActiveCards] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -62,6 +77,7 @@ function StudySessionPage() {
   const [sessionStats, setSessionStats] = useState(buildSessionStats);
   const [sessionSaved, setSessionSaved] = useState(false);
   const [activeSessionMeta, setActiveSessionMeta] = useState(null);
+  const [selectedStudyPresetId, setSelectedStudyPresetId] = useState('');
   const [customSession, setCustomSession] = useState(() => ({
     ...customSessionDefaults,
     deckId: selectedDeckId
@@ -71,16 +87,21 @@ function StudySessionPage() {
     const loadStudySetup = async () => {
       try {
         setIsLoadingSetup(true);
-        const [{ data: flashcardData }, { data: deckData }, { data: tagData }] = await Promise.all([
+        const [{ data: flashcardData }, { data: deckData }, { data: tagData }, { data: presetData }] = await Promise.all([
           getFlashcards(),
           getDecks(),
-          getTags()
+          getTags(),
+          getLearningPresets({
+            language: user?.language || 'Japanese'
+          })
         ]);
 
         startTransition(() => {
           setAvailableCards(flashcardData);
           setDecks(deckData);
           setTags(tagData);
+          setPresets(presetData.items || []);
+          setSelectedStudyPresetId((current) => current || '');
         });
       } catch (error) {
         console.error('Failed to load study setup:', error);
@@ -90,7 +111,7 @@ function StudySessionPage() {
     };
 
     loadStudySetup();
-  }, []);
+  }, [user?.language]);
 
   const deckPresets = useMemo(
     () =>
@@ -119,7 +140,11 @@ function StudySessionPage() {
 
   const currentCard = useMemo(() => activeCards[currentIndex], [activeCards, currentIndex]);
 
-  const startStudySession = ({ cards, title, description, deckId = null }) => {
+  useEffect(() => {
+    cardSeenAtRef.current = Date.now();
+  }, [currentCard?._id]);
+
+  const startStudySession = ({ cards, title, description, deckId = null, presetId = '', shapingStrategy = 'rank_by_fit_then_light_mix' }) => {
     const nextCards = cards.filter(Boolean);
 
     if (nextCards.length === 0) {
@@ -135,12 +160,59 @@ function StudySessionPage() {
     setActiveSessionMeta({
       title,
       description,
-      deckId
+      deckId,
+      presetId,
+      shapingStrategy
     });
   };
 
-  const launchPreset = (preset) => {
-    startStudySession(preset);
+  const shapeSessionCards = async ({ cards, presetId = '' }) => {
+    if (!cards.length) {
+      return [];
+    }
+
+    try {
+      const { data } = await shapeStudySessionFlashcards({
+        flashcardIds: cards.map((card) => card._id),
+        presetId
+      });
+
+      return data.items || cards;
+    } catch (error) {
+      console.error('Failed to shape study session:', error);
+      return cards;
+    }
+  };
+
+  const launchStudySession = async ({ cards, title, description, deckId = null }) => {
+    const nextCards = cards.filter(Boolean);
+
+    if (nextCards.length === 0) {
+      alert('No flashcards matched that study setup yet.');
+      return;
+    }
+
+    try {
+      setIsPreparingSession(true);
+      const shapedCards = await shapeSessionCards({
+        cards: nextCards,
+        presetId: selectedStudyPresetId
+        ,
+        shapingStrategy: 'rank_by_fit_then_light_mix'
+      });
+
+      startStudySession({
+        cards: shapedCards,
+        title,
+        description: selectedStudyPresetId
+          ? `${description} Guided by your goals and selected preset.`
+          : `${description} Guided by your goals and review needs.`,
+        deckId,
+        presetId: selectedStudyPresetId
+      });
+    } finally {
+      setIsPreparingSession(false);
+    }
   };
 
   const buildCustomSessionCards = () => {
@@ -156,12 +228,12 @@ function StudySessionPage() {
 
     nextCards = applyProficiencyFilter(nextCards, customSession.proficiencyMode);
 
-    if (customSession.shuffle) {
-      nextCards = shuffleCards(nextCards);
-    }
-
     if (customSession.sessionSize !== 'all') {
       nextCards = nextCards.slice(0, Number(customSession.sessionSize));
+    }
+
+    if (customSession.shuffle) {
+      nextCards = shuffleCards(nextCards);
     }
 
     return nextCards;
@@ -175,7 +247,7 @@ function StudySessionPage() {
     }));
   };
 
-  const handleStartCustomSession = () => {
+  const handleStartCustomSession = async () => {
     const selectedDeck = decks.find((deck) => String(deck._id) === String(customSession.deckId));
     const selectedTag = tags.find((tag) => String(tag._id) === String(customSession.tagId));
     const customCards = buildCustomSessionCards();
@@ -190,7 +262,7 @@ function StudySessionPage() {
       titleParts.push(`#${selectedTag.name}`);
     }
 
-    startStudySession({
+    await launchStudySession({
       cards: customCards,
       title: titleParts.join(' / '),
       description: 'Built from your current filters.',
@@ -203,7 +275,9 @@ function StudySessionPage() {
 
     try {
       setIsSubmitting(true);
-      await reviewFlashcard(currentCard._id, rating);
+      await reviewFlashcard(currentCard._id, rating, {
+        durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
+      });
       const nextQueueState = updateStudyQueue(activeCards, currentIndex, rating);
       startTransition(() => {
         setSessionStats((previous) => ({
@@ -227,6 +301,15 @@ function StudySessionPage() {
   };
 
   const nextCard = () => {
+    if (currentCard?._id) {
+      recordFlashcardStudyFeedback(currentCard._id, {
+        eventType: 'skip',
+        durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
+      }).catch((error) => {
+        console.error('Failed to record skip feedback:', error);
+      });
+    }
+
     setShowAnswer(false);
     setCurrentIndex((previous) => (activeCards.length === 0 ? 0 : (previous + 1) % activeCards.length));
   };
@@ -254,6 +337,8 @@ function StudySessionPage() {
           goodCount: sessionStats.goodCount,
           easyCount: sessionStats.easyCount,
           deck: activeSessionMeta?.deckId || null,
+          presetId: activeSessionMeta?.presetId || null,
+          shapingStrategy: activeSessionMeta?.shapingStrategy || '',
           startedAt: sessionStats.startedAt,
           completedAt: new Date().toISOString()
         });
@@ -276,7 +361,7 @@ function StudySessionPage() {
 
     if (deckCards.length > 0) {
       hasAutoStartedDeck.current = true;
-      startStudySession({
+      launchStudySession({
         cards: deckCards,
         title: selectedDeck ? `${selectedDeck.name} Study` : 'Deck Study',
         description: 'A deck-based session launched from your decks page.',
@@ -314,6 +399,10 @@ function StudySessionPage() {
     presetSessions.find((preset) => preset.cards.length > 0) ||
     presetSessions[0];
   const secondaryPresets = presetSessions.filter((preset) => preset.id !== primaryPreset?.id);
+  const selectedLearningPreset = useMemo(
+    () => presets.find((preset) => preset.id === selectedStudyPresetId) || null,
+    [presets, selectedStudyPresetId]
+  );
 
   if (activeSessionMeta) {
     if (activeCards.length === 0) {
@@ -452,15 +541,38 @@ function StudySessionPage() {
               </div>
             </div>
 
+            <div className="subsurface-panel study-guidance-panel">
+              <label>
+                Study preset
+                <select value={selectedStudyPresetId} onChange={(event) => setSelectedStudyPresetId(event.target.value)}>
+                  <option value="">No preset guidance</option>
+                  {!presets.length ? <option value="">No presets available</option> : null}
+                  {presets.map((preset) => (
+                    <option key={preset.id} value={preset.id}>
+                      {preset.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted-text">
+                Guided by your goals, review need, and {selectedLearningPreset ? `${selectedLearningPreset.name.toLowerCase()}` : 'your selected preset'}.
+              </p>
+            </div>
+
             <div className="study-start-hero">
               <div className="study-start-copy">
                 <h4>{primaryPreset.title}</h4>
-                <p className="muted-text">{primaryPreset.description}</p>
+                <p className="muted-text">
+                  {primaryPreset.id === 'learning'
+                    ? 'Items with weaker performance, lower proficiency, and higher review need are pulled forward first.'
+                    : primaryPreset.description}
+                </p>
+                <p className="muted-text">Study adapts over time from your ratings, skips, and review history.</p>
               </div>
               <div className="study-start-meta">
                 <p className="study-preset-count">{primaryPreset.cards.length} cards</p>
-                <button type="button" onClick={() => launchPreset(primaryPreset)} disabled={primaryPreset.cards.length === 0}>
-                  Start Session
+                <button type="button" onClick={() => launchStudySession(primaryPreset)} disabled={primaryPreset.cards.length === 0 || isPreparingSession}>
+                  {isPreparingSession ? 'Preparing...' : 'Start Session'}
                 </button>
               </div>
             </div>
@@ -474,7 +586,12 @@ function StudySessionPage() {
                   </div>
                   <div className="study-secondary-card-footer">
                     <span className="mapped-column-tag">{preset.cards.length} cards</span>
-                    <button type="button" className="secondary-button" onClick={() => launchPreset(preset)} disabled={preset.cards.length === 0}>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => launchStudySession(preset)}
+                      disabled={preset.cards.length === 0 || isPreparingSession}
+                    >
                       Start
                     </button>
                   </div>
@@ -505,15 +622,16 @@ function StudySessionPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        launchPreset({
+                        launchStudySession({
                           title: `${deck.name} Study`,
                           description: 'A preset session for this deck.',
                           cards: availableCards.filter((card) => String(card.deck?._id || card.deck) === String(deck._id)),
                           deckId: deck._id
                         })
                       }
+                      disabled={isPreparingSession}
                     >
-                      Study Deck
+                      {isPreparingSession ? 'Preparing...' : 'Study Deck'}
                     </button>
                   </article>
                 ))
@@ -543,14 +661,15 @@ function StudySessionPage() {
                     <button
                       type="button"
                       onClick={() =>
-                        launchPreset({
+                        launchStudySession({
                           title: `Tag Study / #${tag.name}`,
                           description: 'A preset session for this tag.',
                           cards: availableCards.filter((card) => card.tags?.some((cardTag) => String(cardTag._id || cardTag) === String(tag._id)))
                         })
                       }
+                      disabled={isPreparingSession}
                     >
-                      Study Tag
+                      {isPreparingSession ? 'Preparing...' : 'Study Tag'}
                     </button>
                   </article>
                 ))
@@ -558,75 +677,76 @@ function StudySessionPage() {
             </div>
           </div>
 
-          <form
-            className="card form-card study-builder-card study-secondary-panel"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleStartCustomSession();
-            }}
+          <DisclosurePanel
+            title="Custom session"
+            description="Use extra filters only when the guided starts above are not enough."
+            className="card study-builder-card study-secondary-panel"
           >
-            <div className="section-header">
-              <div>
-                <h3>Custom session</h3>
-                <p className="muted-text">Use filters only when the quick starts above are not enough.</p>
+            <form
+              className="form-card form-shell"
+              onSubmit={(event) => {
+                event.preventDefault();
+                handleStartCustomSession();
+              }}
+            >
+              <div className="filter-grid">
+                <label>
+                  Deck
+                  <select name="deckId" value={customSession.deckId} onChange={handleCustomChange}>
+                    <option value="">Any deck</option>
+                    {decks.map((deck) => (
+                      <option key={deck._id} value={deck._id}>
+                        {deck.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Tag
+                  <select name="tagId" value={customSession.tagId} onChange={handleCustomChange}>
+                    <option value="">Any tag</option>
+                    {tags.map((tag) => (
+                      <option key={tag._id} value={tag._id}>
+                        {tag.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  Focus
+                  <select name="proficiencyMode" value={customSession.proficiencyMode} onChange={handleCustomChange}>
+                    <option value="all">All levels</option>
+                    <option value="new">New cards only</option>
+                    <option value="learning">Needs practice</option>
+                    <option value="strong">Strong cards only</option>
+                  </select>
+                </label>
+
+                <label>
+                  Session Size
+                  <select name="sessionSize" value={customSession.sessionSize} onChange={handleCustomChange}>
+                    <option value="all">All matching cards</option>
+                    <option value="10">10 cards</option>
+                    <option value="20">20 cards</option>
+                    <option value="30">30 cards</option>
+                  </select>
+                </label>
               </div>
-            </div>
 
-            <div className="filter-grid">
-              <label>
-                Deck
-                <select name="deckId" value={customSession.deckId} onChange={handleCustomChange}>
-                  <option value="">Any deck</option>
-                  {decks.map((deck) => (
-                    <option key={deck._id} value={deck._id}>
-                      {deck.name}
-                    </option>
-                  ))}
-                </select>
+              <label className="selection-row study-builder-toggle">
+                <input type="checkbox" name="shuffle" checked={customSession.shuffle} onChange={handleCustomChange} />
+                <span>Shuffle cards before starting</span>
               </label>
 
-              <label>
-                Tag
-                <select name="tagId" value={customSession.tagId} onChange={handleCustomChange}>
-                  <option value="">Any tag</option>
-                  {tags.map((tag) => (
-                    <option key={tag._id} value={tag._id}>
-                      {tag.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Focus
-                <select name="proficiencyMode" value={customSession.proficiencyMode} onChange={handleCustomChange}>
-                  <option value="all">All levels</option>
-                  <option value="new">New cards only</option>
-                  <option value="learning">Needs practice</option>
-                  <option value="strong">Strong cards only</option>
-                </select>
-              </label>
-
-              <label>
-                Session Size
-                <select name="sessionSize" value={customSession.sessionSize} onChange={handleCustomChange}>
-                  <option value="all">All matching cards</option>
-                  <option value="10">10 cards</option>
-                  <option value="20">20 cards</option>
-                  <option value="30">30 cards</option>
-                </select>
-              </label>
-            </div>
-
-            <label className="selection-row study-builder-toggle">
-              <input type="checkbox" name="shuffle" checked={customSession.shuffle} onChange={handleCustomChange} />
-              <span>Shuffle cards before starting</span>
-            </label>
-
-            <div className="action-row">
-              <button type="submit">Start Custom Session</button>
-            </div>
-          </form>
+              <div className="action-row">
+                <button type="submit" disabled={isPreparingSession}>
+                  {isPreparingSession ? 'Preparing...' : 'Start Custom Session'}
+                </button>
+              </div>
+            </form>
+          </DisclosurePanel>
         </>
       )}
     </section>

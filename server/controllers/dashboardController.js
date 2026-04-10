@@ -2,7 +2,8 @@ const Deck = require('../models/Deck');
 const Flashcard = require('../models/Flashcard');
 const LearningContent = require('../models/LearningContent');
 const StudySession = require('../models/StudySession');
-const { CONTENT_TYPES, CONTENT_VISIBILITY, serializeContent } = require('../services/contentService');
+const { serializeContent, getRecommendedContent } = require('../services/contentService');
+const { getRecommendedPresets } = require('../services/presetService');
 
 const startOfToday = () => {
   const date = new Date();
@@ -18,15 +19,7 @@ exports.getDashboardOverview = async (req, res) => {
     const [decks, sessions, recommendedContent, savedContent, totalCards, masteredCards, newCards] = await Promise.all([
       Deck.find({ owner: userId }).sort({ updatedAt: -1 }).limit(4),
       StudySession.find({ owner: userId }).populate({ path: 'deck', select: 'name language' }).sort({ completedAt: -1 }).limit(3),
-      LearningContent.find({
-        language: req.user.language || 'Japanese',
-        visibility: CONTENT_VISIBILITY.COMMUNITY,
-        recommendationEligible: true,
-        contentType: CONTENT_TYPES.YOUTUBE,
-        savedBy: { $ne: userId }
-      })
-        .sort({ createdAt: -1 })
-        .limit(4),
+      getRecommendedContent({ user: req.user, query: { limit: 4 } }),
       LearningContent.find({
         savedBy: userId,
         $or: [{ visibility: CONTENT_VISIBILITY.COMMUNITY }, { createdBy: userId }]
@@ -50,6 +43,11 @@ exports.getDashboardOverview = async (req, res) => {
     const reviewedTodaySessions = await StudySession.find({ owner: userId, completedAt: { $gte: today } }).select('reviewedCount');
     const reviewedToday = reviewedTodaySessions.reduce((sum, session) => sum + (session.reviewedCount || 0), 0);
     const dailyGoal = req.user.dailyGoal || 0;
+    const recommendedPresets = getRecommendedPresets({
+      user: req.user,
+      language: req.user.language || 'Japanese',
+      limit: 3
+    });
 
     res.status(200).json({
       stats: {
@@ -66,7 +64,8 @@ exports.getDashboardOverview = async (req, res) => {
         reviewedToday,
         remaining: Math.max(0, dailyGoal - reviewedToday)
       },
-      recommendedContent: recommendedContent.map((item) => serializeContent(item, userId)),
+      recommendedContent: recommendedContent.items,
+      recommendedPresets,
       decks: decks.map((deck) => ({
         ...deck.toObject(),
         flashcardCount: deckCountMap.get(String(deck._id)) || 0

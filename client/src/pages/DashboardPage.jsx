@@ -8,6 +8,7 @@ const createDefaultOverview = () => ({
   continueLearning: { sessions: [], savedContent: [] },
   dailyPractice: { dailyGoal: 0, reviewedToday: 0, remaining: 0 },
   recommendedContent: [],
+  recommendedPresets: [],
   decks: []
 });
 
@@ -36,6 +37,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
   const hasSessions = overview.continueLearning.sessions.length > 0;
   const hasSavedContent = overview.continueLearning.savedContent.length > 0;
   const hasRecommendedContent = overview.recommendedContent.length > 0;
+  const hasRecommendedPresets = overview.recommendedPresets.length > 0;
   const hasDecks = overview.decks.length > 0;
 
   return (
@@ -124,7 +126,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="section-header">
               <div>
                 <h3>Recommended content</h3>
-                <p className="muted-text">A lighter secondary lane for community-ready videos.</p>
+                <p className="muted-text">Based on your goals, level, register preferences, and trusted-content readiness.</p>
               </div>
               <Link className="button-link secondary-button" to="/content">
                 View content
@@ -132,14 +134,15 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             </div>
 
             {hasRecommendedContent ? (
-              <div className="list-grid">
+              <div className="list-grid dashboard-content-grid">
                 {overview.recommendedContent.map((item) => (
-                  <article key={item._id} className="card content-preview-card">
+                  <article key={item._id} className="card content-preview-card content-preview-card-compact">
+                    <div className="content-preview-media" aria-hidden="true">
+                      {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span>{item.contentType === 'youtube' ? 'YT' : 'SRC'}</span>}
+                    </div>
                     <div className="section-stack-tight">
                       <h4>{item.title}</h4>
-                      <p className="muted-text">
-                        {item.language} | {item.sourceProvider} | {item.visibilityLabel} | {item.difficulty || 'No level'}
-                      </p>
+                      <p className="muted-text">{item.difficulty || 'Open level'} • {item.visibilityBadge || item.visibilityLabel}</p>
                     </div>
                     <Link className="button-link" to="/content">
                       Open content
@@ -183,6 +186,39 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                 <p className="muted-text">At level 5</p>
               </article>
             </div>
+          </section>
+
+          <section className="card dashboard-section">
+            <div className="section-header">
+              <div>
+                <h3>Suggested presets</h3>
+                <p className="muted-text">Guided by your onboarding profile and current study direction.</p>
+              </div>
+              <Link className="button-link secondary-button" to="/study">
+                Use in study
+              </Link>
+            </div>
+
+            {hasRecommendedPresets ? (
+              <div className="dashboard-stack-list">
+                {overview.recommendedPresets.map((preset) => (
+                  <div key={preset.id} className="dashboard-list-row">
+                    <div>
+                      <strong>{preset.name}</strong>
+                      <p className="muted-text detail-support-copy">{preset.description}</p>
+                    </div>
+                    <span className="mapped-column-tag">
+                      {preset.recommendationDebug?.scoreBreakdown?.recommendationBand?.replaceAll('_', ' ') || 'fit'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h4>No preset suggestions yet</h4>
+                <p className="muted-text">Finish onboarding so Lingua can suggest more relevant preset lanes.</p>
+              </div>
+            )}
           </section>
 
           <section className="card dashboard-section">

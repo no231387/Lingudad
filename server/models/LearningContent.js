@@ -27,9 +27,14 @@ const learningContentSchema = new mongoose.Schema(
       enum: ['youtube', 'uploaded', 'other'],
       default: 'youtube'
     },
+    sourceType: {
+      type: String,
+      enum: ['video', 'uploaded_media', 'external_link'],
+      default: 'video'
+    },
     visibility: {
       type: String,
-      enum: ['community', 'private'],
+      enum: ['community', 'private', 'global'],
       default: 'community'
     },
     discoverySource: {
@@ -40,6 +45,29 @@ const learningContentSchema = new mongoose.Schema(
     recommendationEligible: {
       type: Boolean,
       default: false
+    },
+    isSystemContent: {
+      type: Boolean,
+      default: false
+    },
+    isCurated: {
+      type: Boolean,
+      default: false
+    },
+    seedSource: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    curationStatus: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    trustLevel: {
+      type: String,
+      default: '',
+      trim: true
     },
     sourceProvider: {
       type: String,
@@ -57,6 +85,11 @@ const learningContentSchema = new mongoose.Schema(
       trim: true
     },
     url: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    sourceUrl: {
       type: String,
       default: '',
       trim: true
@@ -81,6 +114,11 @@ const learningContentSchema = new mongoose.Schema(
       default: null,
       min: 0
     },
+    durationSeconds: {
+      type: Number,
+      default: null,
+      min: 0
+    },
     topicTags: {
       type: [tagField],
       default: []
@@ -100,7 +138,12 @@ const learningContentSchema = new mongoose.Schema(
     },
     transcriptStatus: {
       type: String,
-      enum: ['none', 'pending', 'ready'],
+      enum: ['none', 'pending', 'ready', 'manual_ready', 'linked'],
+      default: 'none'
+    },
+    transcriptSource: {
+      type: String,
+      enum: ['none', 'manual', 'youtube_caption', 'uploaded_file', 'trusted_link', 'future_pipeline'],
       default: 'none'
     },
     transcriptAvailable: {
@@ -128,10 +171,40 @@ const learningContentSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    metadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    provenance: {
+      ingestionMethod: {
+        type: String,
+        default: 'manual',
+        trim: true
+      },
+      sourceCapturedAt: {
+        type: Date,
+        default: Date.now
+      },
+      sourceSnapshotTitle: {
+        type: String,
+        default: '',
+        trim: true
+      },
+      sourceSnapshotUrl: {
+        type: String,
+        default: '',
+        trim: true
+      },
+      notes: {
+        type: String,
+        default: '',
+        trim: true
+      }
+    },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      required: [true, 'Created by is required']
+      default: null
     },
     savedBy: [
       {
@@ -148,10 +221,10 @@ const learningContentSchema = new mongoose.Schema(
 );
 
 learningContentSchema.index(
-  { sourceProvider: 1, sourceId: 1 },
+  { visibility: 1, sourceProvider: 1, sourceId: 1 },
   {
     unique: true,
-    partialFilterExpression: { visibility: 'community' }
+    partialFilterExpression: { visibility: { $in: ['community', 'global'] } }
   }
 );
 learningContentSchema.index(
@@ -162,10 +235,16 @@ learningContentSchema.index(
   }
 );
 learningContentSchema.index({ language: 1, contentType: 1, createdAt: -1 });
+learningContentSchema.index({ language: 1, sourceType: 1, createdAt: -1 });
 learningContentSchema.index({ visibility: 1, recommendationEligible: 1, language: 1, createdAt: -1 });
+learningContentSchema.index({ isSystemContent: 1, isCurated: 1, seedSource: 1, createdAt: -1 });
 learningContentSchema.index({ transcriptStatus: 1, transcriptAvailable: 1 });
 learningContentSchema.index({ topicTags: 1 });
 learningContentSchema.index({ registerTags: 1 });
 learningContentSchema.index({ skillTags: 1 });
+learningContentSchema.index(
+  { title: 'text', description: 'text', sourceId: 'text', sourceUrl: 'text' },
+  { language_override: '_textLanguageOverride' }
+);
 
 module.exports = mongoose.model('LearningContent', learningContentSchema);

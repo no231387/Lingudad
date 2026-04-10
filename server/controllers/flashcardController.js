@@ -3,12 +3,14 @@ const Deck = require('../models/Deck');
 const Tag = require('../models/Tag');
 const { normalizeSourceFields, SOURCE_TYPES } = require('../services/sourceCatalogService');
 const { upsertProgress } = require('../services/userProgressService');
+const { getPresetById } = require('../services/presetService');
+const { shapeStudySessionItems } = require('../services/learningEngineService');
 const {
   createFlashcardFromSentence: generateFlashcardFromSentence,
   createFlashcardFromVocabulary: generateFlashcardFromVocabulary
 } = require('../services/studyGenerationService');
 
-const REVIEW_RATINGS = new Set(['again', 'good', 'easy']);
+const REVIEW_RATINGS = new Set(['again', 'hard', 'good', 'easy']);
 const DUPLICATE_OPTIONS = new Set(['skip', 'import_anyway', 'update_existing']);
 const FLASHCARD_POPULATION = [
   { path: 'owner', select: 'username' },
@@ -19,6 +21,10 @@ const FLASHCARD_POPULATION = [
 const updateProficiencyFromReview = (currentProficiency, rating) => {
   if (rating === 'again') {
     return Math.max(1, currentProficiency - 1);
+  }
+
+  if (rating === 'hard') {
+    return currentProficiency;
   }
 
   if (rating === 'easy') {
@@ -32,6 +38,22 @@ const applyReviewRating = (flashcard, rating) => {
   const reviewCount = flashcard.reviewCount || 0;
   flashcard.reviewCount = reviewCount + 1;
   flashcard.proficiency = updateProficiencyFromReview(flashcard.proficiency, rating);
+};
+
+const recordProgressFeedback = async ({ userId, flashcardId, rating, durationMs = 0 }) => {
+  const normalizedRating = String(rating || '').toLowerCase();
+  const isCorrect = normalizedRating === 'good' || normalizedRating === 'easy';
+  const isIncorrect = normalizedRating === 'again';
+
+  return upsertProgress({
+    userId,
+    itemType: 'flashcard',
+    itemId: flashcardId,
+    correctDelta: isCorrect ? 1 : 0,
+    incorrectDelta: isIncorrect ? 1 : 0,
+    rating: normalizedRating,
+    durationMs
+  });
 };
 
 const normalizeText = (value) => String(value || '').trim();
@@ -448,9 +470,10 @@ exports.resetFlashcardProficiency = async (req, res) => {
 exports.reviewFlashcard = async (req, res) => {
   try {
     const rating = String(req.body.rating || '').toLowerCase();
+    const durationMs = Number(req.body.durationMs || 0);
 
     if (!REVIEW_RATINGS.has(rating)) {
-      return res.status(400).json({ message: 'Rating must be one of: again, good, easy.' });
+      return res.status(400).json({ message: 'Rating must be one of: again, hard, good, easy.' });
     }
 
     const flashcard = await Flashcard.findById(req.params.id);
@@ -466,17 +489,47 @@ exports.reviewFlashcard = async (req, res) => {
     applyReviewRating(flashcard, rating);
 
     await flashcard.save();
-    await upsertProgress({
+    await recordProgressFeedback({
       userId: req.user._id,
-      itemType: 'flashcard',
-      itemId: flashcard._id,
-      correctDelta: rating === 'again' ? 0 : 1,
-      incorrectDelta: rating === 'again' ? 1 : 0
+      flashcardId: flashcard._id,
+      rating,
+      durationMs
     });
 
     res.status(200).json(flashcard);
   } catch (error) {
     res.status(400).json({ message: 'Failed to review flashcard.', error: error.message });
+  }
+};
+
+exports.recordStudyFeedback = async (req, res) => {
+  try {
+    const eventType = String(req.body.eventType || '').toLowerCase();
+    const durationMs = Number(req.body.durationMs || 0);
+    const flashcard = await Flashcard.findById(req.params.id);
+
+    if (!flashcard) {
+      return res.status(404).json({ message: 'Flashcard not found.' });
+    }
+
+    if (!ownsFlashcard(flashcard, req.user)) {
+      return res.status(403).json({ message: 'You can only record study feedback for your own flashcards.' });
+    }
+
+    if (eventType !== 'skip') {
+      return res.status(400).json({ message: 'Study feedback event must currently be: skip.' });
+    }
+
+    await recordProgressFeedback({
+      userId: req.user._id,
+      flashcardId: flashcard._id,
+      rating: 'skip',
+      durationMs
+    });
+
+    res.status(200).json({ message: 'Study feedback recorded.' });
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to record study feedback.', error: error.message });
   }
 };
 
@@ -650,6 +703,56 @@ exports.removeDuplicateWords = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: 'Failed to remove duplicate words.', error: error.message });
+  }
+};
+
+exports.shapeStudySession = async (req, res) => {
+  try {
+    const flashcardIds = Array.isArray(req.body.flashcardIds)
+      ? [...new Set(req.body.flashcardIds.map((id) => normalizeText(id)).filter(Boolean))]
+      : [];
+    const preset = getPresetById(req.body.presetId || req.body.preset);
+
+    if (flashcardIds.length === 0) {
+      return res.status(400).json({ message: 'Select at least one flashcard to shape a study session.' });
+    }
+
+    const flashcards = await Flashcard.find({
+      _id: { $in: flashcardIds },
+      ...buildOwnedFilter(req.user)
+    }).populate(FLASHCARD_POPULATION);
+
+    if (flashcards.length !== flashcardIds.length) {
+      return res.status(403).json({ message: 'You can only shape study sessions with your own flashcards.' });
+    }
+
+    const shapedItems = await shapeStudySessionItems({
+      user: req.user,
+      preset,
+      items: flashcards
+    });
+
+    res.status(200).json({
+      items: shapedItems.map(({ item, recommendationDebug, queuePosition }) => ({
+        ...item.toObject(),
+        studyRecommendationDebug: {
+          queuePosition,
+          ...recommendationDebug
+        }
+      })),
+      shaping: {
+        preset: preset
+          ? {
+              id: preset.id,
+              name: preset.name
+            }
+          : null,
+        itemCount: shapedItems.length,
+        strategy: 'rank_by_fit_then_light_mix'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to shape study session.', error: error.message });
   }
 };
 
