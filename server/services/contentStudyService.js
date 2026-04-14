@@ -195,6 +195,61 @@ const summarizeStudyPack = ({ segments, items }) => {
   };
 };
 
+const buildSessionItemFromStudyPackItem = ({ item, content, index }) => ({
+  id: item.id,
+  queuePosition: index + 1,
+  sessionItemType: 'content_study',
+  sessionSource: 'content',
+  generationType: normalizeText(item.generationType),
+  promptMode: normalizeText(item.promptMode),
+  trustState: normalizeText(item.trustState),
+  validationState: normalizeText(item.provenance?.validationStatus || 'raw_transcript'),
+  title: normalizeText(item.title),
+  wordOrPhrase:
+    normalizeText(item.trustedAnchor?.term) ||
+    normalizeText(item.trustedAnchor?.text) ||
+    normalizeText(item.title) ||
+    'Content study item',
+  translation: normalizeText(item.correctAnswer),
+  meaning: uniqueValues(item.answers).join(' / '),
+  exampleSentence: normalizeText(item.transcriptText),
+  transcriptText: normalizeText(item.transcriptText),
+  prompt: normalizeText(item.prompt),
+  answers: uniqueValues(item.answers),
+  correctAnswer: normalizeText(item.correctAnswer),
+  language: normalizeText(item.language || content.language),
+  proficiency: 1,
+  sourceType: 'media',
+  sourceProvider: normalizeText(item.provenance?.contentSourceProvider || content.sourceProvider),
+  sourceId: String(item.contentId || content._id),
+  generatedFromModel: normalizeText(item.trustedAnchor?.model || 'TranscriptSegment'),
+  generatedFromId: normalizeText(item.trustedAnchor?.id || item.transcriptSegmentId),
+  contentId: String(item.contentId || content._id),
+  transcriptSegmentId: normalizeText(item.transcriptSegmentId),
+  trustedAnchor: item.trustedAnchor || null,
+  metadata: item.metadata || {},
+  provenance: {
+    ...item.provenance,
+    contentId: String(item.contentId || content._id),
+    contentTitle: normalizeText(content.title),
+    contentUrl: normalizeText(content.sourceUrl || content.url),
+    startTimeSeconds: Number(item.provenance?.startTimeSeconds || 0),
+    endTimeSeconds: Number(item.provenance?.endTimeSeconds || 0)
+  }
+});
+
+const buildContentStudySession = ({ content, items, summary, message }) => ({
+  sessionSource: 'content',
+  title: `${normalizeText(content.title)} Study`,
+  description: 'Transcript-backed content study in segment order.',
+  shapingStrategy: 'content_pack_chronological',
+  itemCount: items.length,
+  content,
+  summary,
+  items: items.map((item, index) => buildSessionItemFromStudyPackItem({ item, content, index })),
+  message
+});
+
 const getContentStudyPack = async ({ contentId, user }) => {
   const content = await getAccessibleContentDocumentById({ id: contentId, user });
 
@@ -283,6 +338,34 @@ const getContentStudyPack = async ({ contentId, user }) => {
   };
 };
 
+const startContentStudySession = async ({ contentId, user }) => {
+  const studyPack = await getContentStudyPack({ contentId, user });
+
+  if (!studyPack) {
+    return null;
+  }
+
+  if (!Array.isArray(studyPack.items) || studyPack.items.length === 0) {
+    return {
+      ...buildContentStudySession({
+        content: studyPack.content,
+        items: [],
+        summary: studyPack.summary,
+        message: 'No study items available yet. Add transcript or trusted links.'
+      }),
+      empty: true
+    };
+  }
+
+  return buildContentStudySession({
+    content: studyPack.content,
+    items: studyPack.items,
+    summary: studyPack.summary,
+    message: studyPack.message
+  });
+};
+
 module.exports = {
-  getContentStudyPack
+  getContentStudyPack,
+  startContentStudySession
 };

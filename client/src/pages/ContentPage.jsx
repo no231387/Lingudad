@@ -1,4 +1,5 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
 import {
@@ -10,6 +11,7 @@ import {
   getLearningContent,
   getLearningContentById,
   getRecommendedLearningContent,
+  startContentStudySession,
   saveContentTranscriptSegments,
   saveLearningContent,
   unsaveLearningContent
@@ -56,6 +58,7 @@ const getQuickTags = (item) => [...(item.topicTags || []), ...(item.skillTags ||
 
 function ContentPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [contentItems, setContentItems] = useState([]);
   const [recommendedContent, setRecommendedContent] = useState([]);
   const [contentSummary, setContentSummary] = useState({
@@ -88,6 +91,7 @@ function ContentPage() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
   const [isLoadingContentStudy, setIsLoadingContentStudy] = useState(false);
+  const [isStartingContentStudy, setIsStartingContentStudy] = useState(false);
 
   const activeView = useMemo(() => CONTENT_LIBRARY_VIEWS.find((view) => view.id === contentView) || CONTENT_LIBRARY_VIEWS[0], [contentView]);
   const isUploadedType = contentForm.contentType === 'uploaded';
@@ -283,6 +287,27 @@ function ContentPage() {
       setMessage(error.response?.data?.error || error.response?.data?.message || 'Could not generate study from content.');
     } finally {
       setIsGeneratingStudy(false);
+    }
+  };
+
+  const handleStartStudyFromContent = async () => {
+    if (!selectedContent) {
+      return;
+    }
+
+    try {
+      setIsStartingContentStudy(true);
+      setMessage('');
+      const { data } = await startContentStudySession(selectedContent._id);
+      navigate('/study', {
+        state: {
+          contentSession: data
+        }
+      });
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Could not start study from this content.');
+    } finally {
+      setIsStartingContentStudy(false);
     }
   };
 
@@ -605,6 +630,13 @@ function ContentPage() {
                 </div>
 
                 <div className="content-primary-actions">
+                  <button
+                    type="button"
+                    onClick={handleStartStudyFromContent}
+                    disabled={isStartingContentStudy || !contentStudyPack?.items?.length}
+                  >
+                    {isStartingContentStudy ? 'Starting study...' : 'Start Study from this Content'}
+                  </button>
                   <button type="button" onClick={() => loadContentStudyPack(selectedContentId)} disabled={isLoadingContentStudy}>
                     {isLoadingContentStudy ? 'Refreshing study...' : 'Refresh transcript-backed study'}
                   </button>

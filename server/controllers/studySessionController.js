@@ -24,13 +24,19 @@ exports.getStudySessions = async (req, res) => {
 exports.createStudySession = async (req, res) => {
   try {
     const flashcardIds = Array.isArray(req.body.flashcards) ? req.body.flashcards : [];
-    const reviewedCount = Number(req.body.reviewedCount || flashcardIds.length || 0);
+    const sessionItems = Array.isArray(req.body.sessionItems) ? req.body.sessionItems : [];
+    const sessionSource = String(req.body.sessionSource || 'flashcard').trim() === 'content' ? 'content' : 'flashcard';
+    const sourceContentId = String(req.body.sourceContentId || '').trim();
+    const sourceContentTitle = String(req.body.sourceContentTitle || '').trim();
+    const itemCount = Number(req.body.itemCount || flashcardIds.length || sessionItems.length || 0);
+    const reviewedCount = Number(req.body.reviewedCount || flashcardIds.length || sessionItems.length || 0);
     const againCount = Number(req.body.againCount || 0);
     const goodCount = Number(req.body.goodCount || 0);
     const easyCount = Number(req.body.easyCount || 0);
     const deckId = req.body.deck || null;
     const presetId = String(req.body.presetId || '').trim();
     const shapingStrategy = String(req.body.shapingStrategy || '').trim();
+    const sourceMetadata = req.body.sourceMetadata && typeof req.body.sourceMetadata === 'object' ? req.body.sourceMetadata : {};
 
     if (flashcardIds.length > 0) {
       const flashcards = await Flashcard.find({
@@ -51,12 +57,22 @@ exports.createStudySession = async (req, res) => {
       }
     }
 
+    if (sessionSource === 'content' && sessionItems.length === 0) {
+      return res.status(400).json({ message: 'Content study sessions need session items.' });
+    }
+
     const session = await StudySession.create({
       owner: req.user._id,
       deck: deckId,
       presetId,
       shapingStrategy,
+      sessionSource,
+      sourceContentId,
+      sourceContentTitle,
+      itemCount,
       flashcards: flashcardIds,
+      sessionItems,
+      sourceMetadata,
       reviewedCount,
       againCount,
       goodCount,

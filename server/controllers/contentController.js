@@ -6,7 +6,7 @@ const {
   getRecommendedContent,
   serializeContent
 } = require('../services/contentService');
-const { getContentStudyPack } = require('../services/contentStudyService');
+const { getContentStudyPack, startContentStudySession } = require('../services/contentStudyService');
 const { createFlashcardsFromContent } = require('../services/studyGenerationService');
 const { getTranscriptSegmentsForContent, ingestTranscriptSegments } = require('../services/transcriptService');
 
@@ -117,6 +117,30 @@ exports.getTranscriptBackedStudyPack = async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ message: 'Failed to prepare transcript-backed study.', error: error.message });
+  }
+};
+
+exports.startStudySessionFromContent = async (req, res) => {
+  try {
+    const result = await startContentStudySession({
+      contentId: req.params.id,
+      user: req.user
+    });
+
+    if (!result) {
+      return res.status(404).json({ message: 'Learning content not found.' });
+    }
+
+    if (result.empty) {
+      return res.status(400).json({
+        message: 'No study items available yet. Add transcript or trusted links.',
+        session: result
+      });
+    }
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to start content study.', error: error.message });
   }
 };
 

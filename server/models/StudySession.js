@@ -22,12 +22,40 @@ const studySessionSchema = new mongoose.Schema(
       default: '',
       trim: true
     },
+    sessionSource: {
+      type: String,
+      enum: ['flashcard', 'content'],
+      default: 'flashcard'
+    },
+    sourceContentId: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    sourceContentTitle: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    itemCount: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     flashcards: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Flashcard'
       }
     ],
+    sessionItems: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: []
+    },
+    sourceMetadata: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     reviewedCount: {
       type: Number,
       min: 0,

@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createStudySession,
   getDecks,
@@ -25,7 +25,7 @@ const customSessionDefaults = {
 
 const buildSessionStats = () => ({
   startedAt: new Date().toISOString(),
-  reviewedFlashcards: [],
+  reviewedItemIds: [],
   againCount: 0,
   goodCount: 0,
   easyCount: 0
@@ -60,9 +60,12 @@ const applyProficiencyFilter = (cards, proficiencyMode) => {
 
 function StudySessionPage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const selectedDeckId = searchParams.get('deck') || '';
   const hasAutoStartedDeck = useRef(false);
+  const hasAutoStartedContent = useRef(false);
   const cardSeenAtRef = useRef(Date.now());
   const [availableCards, setAvailableCards] = useState([]);
   const [decks, setDecks] = useState([]);
@@ -142,13 +145,24 @@ function StudySessionPage() {
 
   useEffect(() => {
     cardSeenAtRef.current = Date.now();
-  }, [currentCard?._id]);
+  }, [currentCard?._id, currentCard?.id]);
 
-  const startStudySession = ({ cards, title, description, deckId = null, presetId = '', shapingStrategy = 'rank_by_fit_then_light_mix' }) => {
+  const startStudySession = ({
+    cards,
+    title,
+    description,
+    deckId = null,
+    presetId = '',
+    shapingStrategy = 'rank_by_fit_then_light_mix',
+    sessionSource = 'flashcard',
+    sourceContentId = '',
+    sourceContentTitle = '',
+    sourceMetadata = {}
+  }) => {
     const nextCards = cards.filter(Boolean);
 
     if (nextCards.length === 0) {
-      alert('No flashcards matched that study setup yet.');
+      alert(sessionSource === 'content' ? 'No study items are ready for this content yet.' : 'No flashcards matched that study setup yet.');
       return;
     }
 
@@ -162,7 +176,11 @@ function StudySessionPage() {
       description,
       deckId,
       presetId,
-      shapingStrategy
+      shapingStrategy,
+      sessionSource,
+      sourceContentId,
+      sourceContentTitle,
+      sourceMetadata
     });
   };
 
@@ -275,16 +293,18 @@ function StudySessionPage() {
 
     try {
       setIsSubmitting(true);
-      await reviewFlashcard(currentCard._id, rating, {
-        durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
-      });
+      if (activeSessionMeta?.sessionSource !== 'content') {
+        await reviewFlashcard(currentCard._id, rating, {
+          durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
+        });
+      }
       const nextQueueState = updateStudyQueue(activeCards, currentIndex, rating);
       startTransition(() => {
         setSessionStats((previous) => ({
           ...previous,
-          reviewedFlashcards: previous.reviewedFlashcards.includes(currentCard._id)
-            ? previous.reviewedFlashcards
-            : [...previous.reviewedFlashcards, currentCard._id],
+          reviewedItemIds: previous.reviewedItemIds.includes(currentCard._id || currentCard.id)
+            ? previous.reviewedItemIds
+            : [...previous.reviewedItemIds, currentCard._id || currentCard.id],
           againCount: previous.againCount + (rating === 'again' ? 1 : 0),
           goodCount: previous.goodCount + (rating === 'good' ? 1 : 0),
           easyCount: previous.easyCount + (rating === 'easy' ? 1 : 0)
@@ -301,7 +321,7 @@ function StudySessionPage() {
   };
 
   const nextCard = () => {
-    if (currentCard?._id) {
+    if (activeSessionMeta?.sessionSource !== 'content' && currentCard?._id) {
       recordFlashcardStudyFeedback(currentCard._id, {
         eventType: 'skip',
         durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
@@ -325,20 +345,26 @@ function StudySessionPage() {
 
   useEffect(() => {
     const saveCompletedSession = async () => {
-      if (activeCards.length !== 0 || sessionSaved || sessionStats.reviewedFlashcards.length === 0) {
+      if (activeCards.length !== 0 || sessionSaved || sessionStats.reviewedItemIds.length === 0) {
         return;
       }
 
       try {
         await createStudySession({
-          flashcards: sessionStats.reviewedFlashcards,
-          reviewedCount: sessionStats.reviewedFlashcards.length,
+          flashcards: activeSessionMeta?.sessionSource === 'content' ? [] : sessionStats.reviewedItemIds,
+          sessionItems: activeSessionMeta?.sessionSource === 'content' ? activeSessionMeta?.sourceMetadata?.sessionItems || [] : [],
+          reviewedCount: sessionStats.reviewedItemIds.length,
           againCount: sessionStats.againCount,
           goodCount: sessionStats.goodCount,
           easyCount: sessionStats.easyCount,
           deck: activeSessionMeta?.deckId || null,
           presetId: activeSessionMeta?.presetId || null,
           shapingStrategy: activeSessionMeta?.shapingStrategy || '',
+          sessionSource: activeSessionMeta?.sessionSource || 'flashcard',
+          sourceContentId: activeSessionMeta?.sourceContentId || '',
+          sourceContentTitle: activeSessionMeta?.sourceContentTitle || '',
+          itemCount: activeSessionMeta?.sourceMetadata?.itemCount || activeSessionMeta?.sourceMetadata?.sessionItems?.length || 0,
+          sourceMetadata: activeSessionMeta?.sourceMetadata || {},
           startedAt: sessionStats.startedAt,
           completedAt: new Date().toISOString()
         });
@@ -369,6 +395,38 @@ function StudySessionPage() {
       });
     }
   }, [availableCards, decks, isLoadingSetup, selectedDeckId]);
+
+  useEffect(() => {
+    const contentSession = location.state?.contentSession;
+
+    if (!contentSession || hasAutoStartedContent.current || activeSessionMeta) {
+      return;
+    }
+
+    const sessionItems = Array.isArray(contentSession.items) ? contentSession.items : [];
+
+    if (sessionItems.length === 0) {
+      return;
+    }
+
+    hasAutoStartedContent.current = true;
+    startStudySession({
+      cards: sessionItems,
+      title: contentSession.title || `${contentSession.content?.title || 'Content'} Study`,
+      description: contentSession.description || 'Transcript-backed content study.',
+      shapingStrategy: contentSession.shapingStrategy || 'content_pack_chronological',
+      sessionSource: 'content',
+      sourceContentId: contentSession.content?._id || '',
+      sourceContentTitle: contentSession.content?.title || '',
+      sourceMetadata: {
+        content: contentSession.content || null,
+        summary: contentSession.summary || {},
+        itemCount: contentSession.itemCount || sessionItems.length,
+        sessionItems
+      }
+    });
+    navigate('/study', { replace: true });
+  }, [activeSessionMeta, location.state, navigate]);
 
   const presetSessions = useMemo(
     () => [
@@ -403,6 +461,7 @@ function StudySessionPage() {
     () => presets.find((preset) => preset.id === selectedStudyPresetId) || null,
     [presets, selectedStudyPresetId]
   );
+  const isContentSession = activeSessionMeta?.sessionSource === 'content';
 
   if (activeSessionMeta) {
     if (activeCards.length === 0) {
@@ -417,7 +476,7 @@ function StudySessionPage() {
           <div className="stats-grid">
             <article className="card stat-card">
               <h3>Reviewed</h3>
-              <p className="stat-number">{sessionStats.reviewedFlashcards.length}</p>
+              <p className="stat-number">{sessionStats.reviewedItemIds.length}</p>
             </article>
             <article className="card stat-card">
               <h3>Again</h3>
@@ -465,38 +524,81 @@ function StudySessionPage() {
               <p className="study-card-meta">
                 <strong>Language:</strong> {currentCard.language}
               </p>
-              <p className="study-card-meta">
-                <strong>Proficiency:</strong> {currentCard.proficiency || 1}
-              </p>
+              {isContentSession ? (
+                <>
+                  <p className="study-card-meta">
+                    <strong>Mode:</strong> {String(currentCard.generationType || '').replaceAll('_', ' ')}
+                  </p>
+                  <p className="study-card-meta">
+                    <strong>Segment:</strong> {Math.max(0, Number(currentCard.provenance?.startTimeSeconds || 0)).toFixed(0)}s-
+                    {Math.max(0, Number(currentCard.provenance?.endTimeSeconds || 0)).toFixed(0)}s
+                  </p>
+                </>
+              ) : (
+                <p className="study-card-meta">
+                  <strong>Proficiency:</strong> {currentCard.proficiency || 1}
+                </p>
+              )}
             </div>
 
             {showAnswer ? (
               <>
-                <p className="study-card-answer">
-                  <strong>Translation:</strong> {currentCard.translation}
-                </p>
-                {currentCard.exampleSentence ? (
-                  <p className="study-card-meta">
-                    <strong>Example:</strong> {currentCard.exampleSentence}
-                  </p>
-                ) : null}
-                {currentCard.tags?.length > 0 ? (
-                  <p className="study-card-meta">
-                    <strong>Tags:</strong> {currentCard.tags.map((tag) => tag.name).join(', ')}
-                  </p>
-                ) : null}
+                {isContentSession ? (
+                  <>
+                    <p className="study-card-answer">
+                      <strong>Self-check:</strong> {currentCard.correctAnswer || currentCard.transcriptText || 'Replay and self-check this segment.'}
+                    </p>
+                    <p className="study-card-meta">
+                      <strong>Prompt:</strong> {currentCard.prompt}
+                    </p>
+                    {currentCard.transcriptText ? (
+                      <p className="study-card-meta">
+                        <strong>Transcript:</strong> {currentCard.transcriptText}
+                      </p>
+                    ) : null}
+                    {currentCard.answers?.length > 1 ? (
+                      <p className="study-card-meta">
+                        <strong>Accepted answers:</strong> {currentCard.answers.join(', ')}
+                      </p>
+                    ) : null}
+                    {currentCard.trustedAnchor ? (
+                      <p className="study-card-meta">
+                        <strong>Trusted anchor:</strong>{' '}
+                        {currentCard.trustedAnchor.model === 'Vocabulary'
+                          ? currentCard.trustedAnchor.term
+                          : currentCard.trustedAnchor.text}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <p className="study-card-answer">
+                      <strong>Translation:</strong> {currentCard.translation}
+                    </p>
+                    {currentCard.exampleSentence ? (
+                      <p className="study-card-meta">
+                        <strong>Example:</strong> {currentCard.exampleSentence}
+                      </p>
+                    ) : null}
+                    {currentCard.tags?.length > 0 ? (
+                      <p className="study-card-meta">
+                        <strong>Tags:</strong> {currentCard.tags.map((tag) => tag.name).join(', ')}
+                      </p>
+                    ) : null}
+                  </>
+                )}
                 <div className="study-review-panel">
-                  <p className="study-review-label">How did this review feel?</p>
+                  <p className="study-review-label">{isContentSession ? 'How did that study check feel?' : 'How did this review feel?'}</p>
                   <p className="muted-text study-review-hint">Again keeps this card in the session and brings it back soon.</p>
                   <div className="study-review-actions">
                     <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
                       Again
                     </button>
                     <button type="button" onClick={() => handleRating('good')} disabled={isSubmitting}>
-                      Good (+1 Proficiency)
+                      {isContentSession ? 'Good' : 'Good (+1 Proficiency)'}
                     </button>
                     <button type="button" onClick={() => handleRating('easy')} disabled={isSubmitting} className="easy-button">
-                      Easy (+2 Proficiency)
+                      {isContentSession ? 'Easy' : 'Easy (+2 Proficiency)'}
                     </button>
                   </div>
                 </div>
@@ -504,9 +606,13 @@ function StudySessionPage() {
             ) : (
               <div className="study-review-panel">
                 <p className="study-review-label">Focus on the card first</p>
-                <p className="muted-text study-review-hint">Reveal the answer when you are ready to check recall.</p>
+                <p className="muted-text study-review-hint">
+                  {isContentSession
+                    ? 'Listen, recall, and reveal the self-check when you are ready.'
+                    : 'Reveal the answer when you are ready to check recall.'}
+                </p>
                 <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
-                  Reveal Translation
+                  {isContentSession ? 'Reveal Self-Check' : 'Reveal Translation'}
                 </button>
               </div>
             )}
