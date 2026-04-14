@@ -711,7 +711,10 @@ exports.shapeStudySession = async (req, res) => {
     const flashcardIds = Array.isArray(req.body.flashcardIds)
       ? [...new Set(req.body.flashcardIds.map((id) => normalizeText(id)).filter(Boolean))]
       : [];
-    const preset = getPresetById(req.body.presetId || req.body.preset);
+    const preset = await getPresetById(req.body.presetId || req.body.preset, {
+      user: req.user,
+      language: req.user?.language
+    });
 
     if (flashcardIds.length === 0) {
       return res.status(400).json({ message: 'Select at least one flashcard to shape a study session.' });

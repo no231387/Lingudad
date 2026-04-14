@@ -78,6 +78,7 @@ Run locally:
 ```bash
 cd server
 npm install
+npm run seed:presets
 npm run dev
 ```
 
@@ -118,6 +119,7 @@ Notes:
 - The frontend is built into `client/dist` during the Docker build.
 - The Express server serves the SPA in production and exposes `/api/health`.
 - Because frontend and backend share one origin in production, `CORS_ORIGINS` can usually just be your DigitalOcean app URL or custom domain.
+- Seed global system presets into the target MongoDB before first use with `cd server && npm run seed:presets`.
 
 ## Docker deployment
 

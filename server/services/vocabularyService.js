@@ -126,7 +126,10 @@ const getVocabularyById = async ({ id, user }) => {
 
 const getRecommendedVocabulary = async ({ user, query = {} }) => {
   const requestedLanguage = query.language || user?.language || 'Japanese';
-  const preset = getPresetById(query.preset);
+  const preset = await getPresetById(query.preset, {
+    user,
+    language: requestedLanguage
+  });
   const filters = buildSearchFilters({
     language: preset?.language || requestedLanguage,
     difficulty: query.difficulty,

@@ -43,7 +43,7 @@ exports.getDashboardOverview = async (req, res) => {
     const reviewedTodaySessions = await StudySession.find({ owner: userId, completedAt: { $gte: today } }).select('reviewedCount');
     const reviewedToday = reviewedTodaySessions.reduce((sum, session) => sum + (session.reviewedCount || 0), 0);
     const dailyGoal = req.user.dailyGoal || 0;
-    const recommendedPresets = getRecommendedPresets({
+    const recommendedPresets = await getRecommendedPresets({
       user: req.user,
       language: req.user.language || 'Japanese',
       limit: 3
