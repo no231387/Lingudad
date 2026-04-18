@@ -1,0 +1,15 @@
+---
+description: Lingua core engineering rules
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Lingua is accuracy-first.
+
+Never invent language facts.
+Never treat transcript/raw content as trusted truth by default.
+Only write UserProgress for trusted Vocabulary or Sentence anchors.
+Keep changes deterministic, modular, and explainable.
+Prefer minimal targeted edits.
+When changing backend behavior, keep frontend payload expectations consistent.
+Run the relevant build/check commands before finishing.
