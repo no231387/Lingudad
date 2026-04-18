@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createStudySession,
   getDecks,
@@ -183,7 +183,7 @@ function StudySessionPage() {
     const nextCards = cards.filter(Boolean);
 
     if (nextCards.length === 0) {
-          alert(sessionSource === 'content' ? 'No practice items are ready for this content yet.' : 'No flashcards matched that study setup yet.');
+          alert(sessionSource === 'content' ? 'Your practice set has nothing ready for this content yet.' : 'No flashcards matched that study setup yet.');
       return;
     }
 
@@ -458,7 +458,7 @@ function StudySessionPage() {
     startStudySession({
       cards: sessionItems,
       title: contentSession.title || `${contentSession.content?.title || 'Content'} Study`,
-      description: contentSession.description || 'Practice built from saved lines and matched study items.',
+      description: contentSession.description || 'Practice from saved lines and matches.',
       shapingStrategy: contentSession.shapingStrategy || 'content_pack_chronological',
       sessionSource: 'content',
       sourceContentId: contentSession.content?._id || '',
@@ -502,23 +502,30 @@ function StudySessionPage() {
     presetSessions.find((preset) => preset.cards.length > 0) ||
     presetSessions[0];
   const secondaryPresets = presetSessions.filter((preset) => preset.id !== primaryPreset?.id);
+  const secondaryPresetRank = { learning: 0, new: 1, all: 2 };
+  const orderedSecondaryPresets = useMemo(
+    () =>
+      [...secondaryPresets].sort((a, b) => (secondaryPresetRank[a.id] ?? 9) - (secondaryPresetRank[b.id] ?? 9)),
+    [secondaryPresets]
+  );
   const selectedLearningPreset = useMemo(
     () => presets.find((preset) => preset.id === selectedStudyPresetId) || null,
     [presets, selectedStudyPresetId]
   );
   const isContentSession = activeSessionMeta?.sessionSource === 'content';
+  const hasFlashcards = availableCards.length > 0;
 
   if (activeSessionMeta) {
     if (activeCards.length === 0) {
       return (
-        <section className="page-section">
+        <section className="page-section study-complete-layout">
           <PageIntro
             eyebrow="Study complete"
             title={activeSessionMeta.title}
-            description={sessionSaved ? 'Your session is complete and has been saved to recent activity.' : 'Session complete.'}
+            description={sessionSaved ? 'Nice work—this session is saved to your recent activity.' : 'Session complete.'}
           />
 
-          <div className="stats-grid">
+          <div className="stats-grid study-complete-stats">
             <article className="card stat-card">
               <h3>Reviewed</h3>
               <p className="stat-number">{sessionStats.reviewedItemIds.length}</p>
@@ -541,9 +548,9 @@ function StudySessionPage() {
             </article>
           </div>
 
-          <div className="action-row">
+          <div className="action-row study-complete-actions">
             <button type="button" onClick={handleExitSession}>
-              Back to Study Setup
+              Back to Study
             </button>
           </div>
         </section>
@@ -595,7 +602,7 @@ function StudySessionPage() {
                 {isContentSession ? (
                   <>
                     <p className="study-card-answer">
-                      <strong>Check:</strong> {currentCard.correctAnswer || currentCard.transcriptText || 'Replay and check this clip.'}
+                      <strong>Answer:</strong> {currentCard.correctAnswer || currentCard.transcriptText || 'Replay this clip to verify.'}
                     </p>
                     <p className="study-card-meta">
                       <strong>Prompt:</strong> {currentCard.prompt}
@@ -612,7 +619,7 @@ function StudySessionPage() {
                     ) : null}
                     {currentCard.trustedAnchor ? (
                       <p className="study-card-meta">
-                        <strong>Matched item:</strong>{' '}
+                        <strong>Linked to:</strong>{' '}
                         {currentCard.trustedAnchor.model === 'Vocabulary'
                           ? currentCard.trustedAnchor.term
                           : currentCard.trustedAnchor.text}
@@ -637,7 +644,7 @@ function StudySessionPage() {
                   </>
                 )}
                 <div className="study-review-panel">
-                  <p className="study-review-label">{isContentSession ? 'How did that check feel?' : 'How did this review feel?'}</p>
+                  <p className="study-review-label">{isContentSession ? 'How did that feel?' : 'How did this review feel?'}</p>
                   <p className="muted-text study-review-hint">Again keeps this card in the session and brings it back soon.</p>
                   <div className="study-review-actions">
                     <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
@@ -660,11 +667,11 @@ function StudySessionPage() {
                 <p className="study-review-label">Focus on the card first</p>
                 <p className="muted-text study-review-hint">
                   {isContentSession
-                    ? 'Listen, recall, and reveal the check when you are ready.'
+                    ? 'Listen, recall, then reveal the answer when you are ready.'
                     : 'Reveal the answer when you are ready to check recall.'}
                 </p>
                 <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
-                  {isContentSession ? 'Reveal Check' : 'Reveal Translation'}
+                  {isContentSession ? 'Show answer' : 'Reveal Translation'}
                 </button>
               </div>
             )}
@@ -672,7 +679,7 @@ function StudySessionPage() {
 
           <div className="study-footer-actions">
             <button type="button" onClick={nextCard} className="secondary-button">
-              Skip Card
+              Skip
             </button>
           </div>
         </article>
@@ -680,9 +687,45 @@ function StudySessionPage() {
     );
   }
 
+  if (!activeSessionMeta && !isLoadingSetup && !hasFlashcards) {
+    return (
+      <section className="page-section study-setup-page study-setup-page-empty">
+        <PageIntro
+          eyebrow="Study"
+          title="Study sessions"
+          description="You need flashcards before you can run a study session."
+        />
+
+        <div className="card elevated-panel step35-empty-guidance step4-study-primary-state">
+          <h3>You don&apos;t have anything to study yet.</h3>
+          <p className="muted-text">Start by learning from content and creating flashcards.</p>
+          <div className="action-row step35-empty-actions">
+            <Link to="/content" className="primary-button">
+              Go to Content
+            </Link>
+            <Link to="/flashcards" className="secondary-button">
+              Go to Flashcards
+            </Link>
+          </div>
+        </div>
+
+        <div className="card step35-muted-preview" aria-hidden="true">
+          <p className="eyebrow-label">When you have cards</p>
+          <p className="muted-text">
+            Recommended sessions, decks, tags, and custom filters will appear here.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
-    <section className="page-section">
-      <PageIntro eyebrow="Study" title="Study" description="Start with one clear session option, then use decks, tags, or filters when you need them." />
+    <section className="page-section study-setup-page">
+      <PageIntro
+        eyebrow="Study"
+        title="Study sessions"
+        description="Start with the suggested session below, or open a deck or tag. Custom filters stay tucked away until you need them."
+      />
 
       {isLoadingSetup ? (
         <div className="card">
@@ -690,18 +733,18 @@ function StudySessionPage() {
         </div>
       ) : (
         <>
-          <div className="card elevated-panel study-primary-panel">
+          <div className="card elevated-panel study-primary-panel study-flow-anchor">
             <div className="section-header">
               <div>
-                <p className="eyebrow-label">Start</p>
-                <h3>Start here</h3>
-                <p className="muted-text">Start with the clearest next session instead of sorting through everything at once.</p>
+                <p className="eyebrow-label">Recommended</p>
+                <h3>Your next session</h3>
+                <p className="muted-text">We pick a stack that fits how your cards are doing right now.</p>
               </div>
             </div>
 
             <div className="subsurface-panel study-guidance-panel">
               <label>
-                Study preset
+                Learning preset (optional)
                 <select value={selectedStudyPresetId} onChange={(event) => setSelectedStudyPresetId(event.target.value)}>
                   <option value="">No preset guidance</option>
                   {!presets.length ? <option value="">No presets available</option> : null}
@@ -713,7 +756,8 @@ function StudySessionPage() {
                 </select>
               </label>
               <p className="muted-text">
-                Guided by your goals, review need, and {selectedLearningPreset ? `${selectedLearningPreset.name.toLowerCase()}` : 'your selected preset'}.
+                Nudges card order using your goals and review need
+                {selectedLearningPreset ? ` (${selectedLearningPreset.name})` : ''}.
               </p>
             </div>
 
@@ -725,19 +769,22 @@ function StudySessionPage() {
                     ? 'Items with weaker performance, lower proficiency, and higher review need are pulled forward first.'
                     : primaryPreset.description}
                 </p>
-                <p className="muted-text">This gets better over time based on your ratings, skips, and review history.</p>
+                <p className="muted-text">Ratings and skips refine what comes up next.</p>
               </div>
               <div className="study-start-meta">
                 <p className="study-preset-count">{primaryPreset.cards.length} cards</p>
                 <button type="button" onClick={() => launchStudySession(primaryPreset)} disabled={primaryPreset.cards.length === 0 || isPreparingSession}>
-                  {isPreparingSession ? 'Preparing...' : 'Start Session'}
+                  {isPreparingSession ? 'Preparing...' : 'Start session'}
                 </button>
               </div>
             </div>
 
             <div className="study-secondary-actions">
-              {secondaryPresets.map((preset) => (
-                <article key={preset.id} className="subsurface-panel study-secondary-card">
+              {orderedSecondaryPresets.map((preset) => (
+                <article
+                  key={preset.id}
+                  className={`subsurface-panel study-secondary-card ${preset.id === 'learning' ? 'study-secondary-card-focus' : 'study-secondary-card-quiet'}`}
+                >
                   <div className="section-stack-tight">
                     <h4>{preset.title}</h4>
                     <p className="muted-text">{preset.description}</p>
@@ -758,87 +805,91 @@ function StudySessionPage() {
             </div>
           </div>
 
-          <div className="card study-secondary-panel">
-            <div className="section-header">
-              <div>
-                <h3>Continue by deck</h3>
-                <p className="muted-text">Use saved decks as lightweight one-click session starters.</p>
+          <div className="study-routes-grid">
+            <div className="card study-secondary-panel study-route-panel-quiet">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow-label">By deck</p>
+                  <h3>Study a deck</h3>
+                  <p className="muted-text">One deck, one session.</p>
+                </div>
+              </div>
+              <div className="list-grid study-preset-grid">
+                {deckPresets.length === 0 ? (
+                  <div className="empty-state compact-empty-state">
+                    <h4>No decks ready yet</h4>
+                    <p className="muted-text">Add flashcards to a deck first, then you can launch one-click deck sessions here.</p>
+                  </div>
+                ) : (
+                  deckPresets.map((deck) => (
+                    <article key={deck._id} className="card study-preset-card">
+                      <h4>{deck.name}</h4>
+                      <p className="muted-text">{deck.description || `${deck.language || 'Language not set'} deck ready to study.`}</p>
+                      <p className="study-preset-count">{deck.count} cards</p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          launchStudySession({
+                            title: `${deck.name} Study`,
+                            description: 'A preset session for this deck.',
+                            cards: availableCards.filter((card) => String(card.deck?._id || card.deck) === String(deck._id)),
+                            deckId: deck._id
+                          })
+                        }
+                        disabled={isPreparingSession}
+                      >
+                        {isPreparingSession ? 'Preparing...' : 'Study Deck'}
+                      </button>
+                    </article>
+                  ))
+                )}
               </div>
             </div>
-            <div className="list-grid study-preset-grid">
-              {deckPresets.length === 0 ? (
-                <div className="empty-state compact-empty-state">
-                  <h4>No decks ready yet</h4>
-                  <p className="muted-text">Add flashcards to a deck first, then you can launch one-click deck sessions here.</p>
-                </div>
-              ) : (
-                deckPresets.map((deck) => (
-                  <article key={deck._id} className="card study-preset-card">
-                    <h4>{deck.name}</h4>
-                    <p className="muted-text">{deck.description || `${deck.language || 'Language not set'} deck ready to study.`}</p>
-                    <p className="study-preset-count">{deck.count} cards</p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        launchStudySession({
-                          title: `${deck.name} Study`,
-                          description: 'A preset session for this deck.',
-                          cards: availableCards.filter((card) => String(card.deck?._id || card.deck) === String(deck._id)),
-                          deckId: deck._id
-                        })
-                      }
-                      disabled={isPreparingSession}
-                    >
-                      {isPreparingSession ? 'Preparing...' : 'Study Deck'}
-                    </button>
-                  </article>
-                ))
-              )}
-            </div>
-          </div>
 
-          <div className="card study-secondary-panel">
-            <div className="section-header">
-              <div>
-                <h3>Continue by tag</h3>
-                <p className="muted-text">Use the tags you rely on most when you want a narrower session.</p>
-              </div>
-            </div>
-            <div className="list-grid study-preset-grid">
-              {tagPresets.length === 0 ? (
-                <div className="empty-state compact-empty-state">
-                  <h4>No tags ready yet</h4>
-                  <p className="muted-text">Once your flashcards include tags, you can start tag-based sessions here.</p>
+            <div className="card study-secondary-panel study-route-panel-quiet">
+              <div className="section-header">
+                <div>
+                  <p className="eyebrow-label">By tag</p>
+                  <h3>Study a tag</h3>
+                  <p className="muted-text">Narrow to cards with a given tag.</p>
                 </div>
-              ) : (
-                tagPresets.map((tag) => (
-                  <article key={tag._id} className="card study-preset-card">
-                    <h4>#{tag.name}</h4>
-                    <p className="muted-text">A focused session built from this tag.</p>
-                    <p className="study-preset-count">{tag.count} cards</p>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        launchStudySession({
-                          title: `Tag Study / #${tag.name}`,
-                          description: 'A preset session for this tag.',
-                          cards: availableCards.filter((card) => card.tags?.some((cardTag) => String(cardTag._id || cardTag) === String(tag._id)))
-                        })
-                      }
-                      disabled={isPreparingSession}
-                    >
-                      {isPreparingSession ? 'Preparing...' : 'Study Tag'}
-                    </button>
-                  </article>
-                ))
-              )}
+              </div>
+              <div className="list-grid study-preset-grid">
+                {tagPresets.length === 0 ? (
+                  <div className="empty-state compact-empty-state">
+                    <h4>No tags ready yet</h4>
+                    <p className="muted-text">Once your flashcards include tags, you can start tag-based sessions here.</p>
+                  </div>
+                ) : (
+                  tagPresets.map((tag) => (
+                    <article key={tag._id} className="card study-preset-card">
+                      <h4>#{tag.name}</h4>
+                      <p className="muted-text">A focused session built from this tag.</p>
+                      <p className="study-preset-count">{tag.count} cards</p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          launchStudySession({
+                            title: `Tag Study / #${tag.name}`,
+                            description: 'A preset session for this tag.',
+                            cards: availableCards.filter((card) => card.tags?.some((cardTag) => String(cardTag._id || cardTag) === String(tag._id)))
+                          })
+                        }
+                        disabled={isPreparingSession}
+                      >
+                        {isPreparingSession ? 'Preparing...' : 'Study Tag'}
+                      </button>
+                    </article>
+                  ))
+                )}
+              </div>
             </div>
           </div>
 
           <DisclosurePanel
             title="Custom session"
-            description="Use extra filters only when the guided starts above are not enough."
-            className="card study-builder-card study-secondary-panel"
+            description="Deck, tag, difficulty, and size—only when the options above are not enough."
+            className="card study-builder-card study-secondary-panel study-custom-disclosure study-custom-quiet"
           >
             <form
               className="form-card form-shell"
@@ -900,7 +951,7 @@ function StudySessionPage() {
 
               <div className="action-row">
                 <button type="submit" disabled={isPreparingSession}>
-                  {isPreparingSession ? 'Preparing...' : 'Start Custom Session'}
+                  {isPreparingSession ? 'Preparing...' : 'Start with these filters'}
                 </button>
               </div>
             </form>

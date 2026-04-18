@@ -23,10 +23,10 @@ const ContentPage = lazy(() => import('./pages/ContentPage'));
 
 const getStoredTheme = () => {
   try {
-    return localStorage.getItem('linguacards_theme') || 'light';
+    return localStorage.getItem('linguacards_theme') || 'dark';
   } catch (error) {
     console.warn('Unable to read theme from localStorage:', error);
-    return 'light';
+    return 'dark';
   }
 };
 
@@ -100,28 +100,42 @@ function App() {
     setTheme((previous) => (previous === 'dark' ? 'light' : 'dark'));
   };
 
-  const navItems = useMemo(
+  const navGroups = useMemo(
     () =>
       isAuthenticated
         ? [
-            { to: '/', label: 'Home', shortLabel: 'Home' },
-            { to: '/sentences', label: 'Sentences', shortLabel: 'Sentence' },
-            { to: '/vocabulary', label: 'Vocabulary', shortLabel: 'Vocab' },
-            { to: '/content', label: 'Content', shortLabel: 'Content' },
-            { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
-            { to: '/official-beginner-decks', label: 'Official Decks', shortLabel: 'Official' },
-            { to: '/flashcards', label: 'Flashcards', shortLabel: 'Cards' },
-            { to: '/community', label: 'Community', shortLabel: 'Community' },
-            { to: '/import', label: 'Import', shortLabel: 'Import' },
-            { to: '/study', label: 'Study', shortLabel: 'Study' },
-            { to: '/quiz', label: 'Quiz', shortLabel: 'Quiz' }
+            [{ to: '/', label: 'Home', shortLabel: 'Home' }],
+            [
+              { to: '/content', label: 'Content', shortLabel: 'Content' },
+              { to: '/flashcards', label: 'Flashcards', shortLabel: 'Cards' }
+            ],
+            [
+              { to: '/study', label: 'Study', shortLabel: 'Study' },
+              { to: '/quiz', label: 'Quiz', shortLabel: 'Quiz' }
+            ],
+            [
+              { to: '/vocabulary', label: 'Vocabulary', shortLabel: 'Vocab' },
+              { to: '/sentences', label: 'Sentences', shortLabel: 'Sentence' }
+            ],
+            [
+              { to: '/decks', label: 'Decks', shortLabel: 'Decks' },
+              { to: '/import', label: 'Import', shortLabel: 'Import' }
+            ],
+            [
+              { to: '/official-beginner-decks', label: 'Official Decks', shortLabel: 'Official' },
+              { to: '/community', label: 'Community', shortLabel: 'Community' }
+            ]
           ]
         : [
-            { to: '/login', label: 'Login', shortLabel: 'Login' },
-            { to: '/register', label: 'Register', shortLabel: 'Register' }
+            [
+              { to: '/login', label: 'Login', shortLabel: 'Login' },
+              { to: '/register', label: 'Register', shortLabel: 'Register' }
+            ]
           ],
     [isAuthenticated]
   );
+
+  const navItems = useMemo(() => navGroups.flat(), [navGroups]);
 
   const currentRouteLabel =
     navItems.find((item) => (item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)))?.label ||
@@ -271,7 +285,7 @@ function App() {
 
   return (
     <div className="app-shell">
-      <aside className={`app-sidebar ${isNavOpen ? 'is-open' : ''}`}>
+      <aside className={`app-sidebar surface-quiet ${isNavOpen ? 'is-open' : ''}`}>
         <div className="sidebar-brand">
           <div className="brand-mark" aria-hidden="true">
             <span className="brand-mark-core">L</span>
@@ -285,11 +299,15 @@ function App() {
           </div>
         </div>
         <nav className="nav-bar" aria-label="Primary">
-          {navItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.to === '/'}>
-              <span className="nav-link-label">{item.label}</span>
-              <span className="nav-link-short">{item.shortLabel}</span>
-            </NavLink>
+          {navGroups.map((group, groupIndex) => (
+            <div key={groupIndex} className="nav-bar-group">
+              {group.map((item) => (
+                <NavLink key={item.to} to={item.to} end={item.to === '/'}>
+                  <span className="nav-link-label">{item.label}</span>
+                  <span className="nav-link-short">{item.shortLabel}</span>
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
       </aside>

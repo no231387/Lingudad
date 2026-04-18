@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
 import {
   completeQuizSession,
@@ -266,27 +266,27 @@ function QuizSessionPage() {
   const progressCopy = currentItem ? `${currentIndex + 1} / ${session?.itemCount || items.length}` : 'Ready';
   const currentQuizTypeCopy = currentItem ? getQuizTypeCopy(currentItem.quizType, currentItem.quizTypeLabel) : null;
 
+  const hubStartLabel =
+    isStarting ? 'Starting...' : selectedQuizItemIds.length > 0 ? `Start quiz (${selectedQuizItemIds.length})` : 'Start quiz';
+  const hasQuizItems = playableItems.length > 0;
+  const showQuizHubEmptyGuidance = hasHub && !isLoadingHub && !hasQuizItems;
+
   return (
     <section className="page-section">
       <PageIntro
         eyebrow="Quiz"
-        title="Quiz practice"
-        description="Start a quick quiz, move through a few questions, and come back to old results anytime."
+        title="Quiz mode"
+        description={
+          session
+            ? 'Answer at your pace, then review the round when you are done.'
+            : 'Optionally pick questions below, then start a round.'
+        }
         actions={
-          <>
-            <button
-              type="button"
-              onClick={() => handleStartQuiz({ quizItemIds: selectedQuizItemIds })}
-              disabled={!hasHub || isStarting || isLoadingHub}
-            >
-              {isStarting ? 'Starting...' : selectedQuizItemIds.length > 0 ? `Start selected (${selectedQuizItemIds.length})` : 'Start a quick quiz'}
+          session ? (
+            <button type="button" className="secondary-button" onClick={handleReturnToHub}>
+              Back to hub
             </button>
-            {session ? (
-              <button type="button" className="secondary-button" onClick={handleReturnToHub}>
-                Back to quizzes
-              </button>
-            ) : null}
-          </>
+          ) : null
         }
       />
 
@@ -301,7 +301,7 @@ function QuizSessionPage() {
                   <div className="section-stack-tight">
                     <p className="eyebrow-label">Review</p>
                     <h3>Quiz results</h3>
-                    <p className="muted-text">See how each question went and compare your answer with the checked answer.</p>
+                    <p className="muted-text">Review each question and compare answers.</p>
                   </div>
                   <span className="mapped-column-tag">{correctRate}% correct</span>
                 </div>
@@ -309,7 +309,7 @@ function QuizSessionPage() {
                 <div className="profile-stats">
                   <div className="profile-stat">
                     <span className="profile-stat-value">{session.itemCount}</span>
-                    <span className="muted-text">Items</span>
+                    <span className="muted-text">Questions</span>
                   </div>
                   <div className="profile-stat">
                     <span className="profile-stat-value">{session.correctCount}</span>
@@ -357,10 +357,10 @@ function QuizSessionPage() {
 
                 <div className="action-row">
                   <button type="button" onClick={handleReturnToHub} disabled={isLoadingHub}>
-                    Back to quizzes
+                    Back
                   </button>
                   <button type="button" className="secondary-button" onClick={() => handleStartQuiz({ quizItemIds: selectedQuizItemIds })} disabled={isStarting}>
-                    Start another quiz
+                    New quiz
                   </button>
                 </div>
               </div>
@@ -371,7 +371,7 @@ function QuizSessionPage() {
                 <div className="section-stack-tight">
                   <p className="eyebrow-label">Session</p>
                   <h3>Recent quizzes</h3>
-                  <p className="muted-text">Open an older result again whenever you want a quick review.</p>
+                  <p className="muted-text">Reopen past results for review.</p>
                 </div>
                 <div className="dashboard-stack-list">
                   {recentSessions.length ? (
@@ -404,8 +404,8 @@ function QuizSessionPage() {
                 <div className="section-header">
                   <div className="section-stack-tight">
                     <p className="eyebrow-label">In session</p>
-                    <h3>{currentQuizTypeCopy?.title || 'Quiz question'}</h3>
-                    <p className="muted-text">Answer first, then move on. Skips are tracked separately so you can see where you hesitated.</p>
+                    <h3>{currentQuizTypeCopy?.title || 'Question'}</h3>
+                    <p className="muted-text">Answer, then continue. Skips are recorded separately.</p>
                   </div>
                   <span className="mapped-column-tag">{progressCopy}</span>
                 </div>
@@ -431,7 +431,7 @@ function QuizSessionPage() {
 
                     <div className="action-row">
                       <button type="button" onClick={() => handleSubmit('answer')} disabled={isSubmitting}>
-                        {isSubmitting ? 'Submitting...' : 'Check answer'}
+                        {isSubmitting ? 'Submitting...' : 'Submit'}
                       </button>
                       <button type="button" className="secondary-button" onClick={() => handleSubmit('skip')} disabled={isSubmitting}>
                         Skip for now
@@ -466,7 +466,7 @@ function QuizSessionPage() {
                 <div className="section-stack-tight">
                   <p className="eyebrow-label">Progress</p>
                   <h3>This session</h3>
-                  <p className="muted-text">Go one question at a time, then review the whole round at the end.</p>
+                  <p className="muted-text">One question at a time; review the full round when you finish.</p>
                 </div>
                 <div className="dashboard-stack-list">
                   {session.items.map((item, index) => {
@@ -497,22 +497,53 @@ function QuizSessionPage() {
           </div>
         ) : null
       ) : (
-        <div className="dashboard-grid">
-          <div className="dashboard-primary">
-            <div className="card dashboard-section">
-              <div className="section-header">
+        <div className="dashboard-grid quiz-hub-page">
+          {showQuizHubEmptyGuidance ? (
+            <div className="card elevated-panel step35-empty-guidance quiz-hub-guidance-banner">
+              <h3>You need flashcards or practice items before starting a quiz.</h3>
+              <p className="muted-text">Build cards from content first—quiz questions come from your trusted vocabulary and sentences.</p>
+              <div className="action-row step35-empty-actions">
+                <Link to="/content" className="primary-button">
+                  Learn from content
+                </Link>
+                <Link to="/flashcards" className="secondary-button">
+                  Build flashcards
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
+          <div className={`dashboard-primary quiz-hub-main ${showQuizHubEmptyGuidance ? 'quiz-hub-main-muted' : ''}`}>
+            <div className="card dashboard-section quiz-launch-primary quiz-launch-cluster">
+              <div className="section-header quiz-launch-header">
                 <div className="section-stack-tight">
-                  <p className="eyebrow-label">Launch</p>
-                  <h3>Available quiz questions</h3>
-                  <p className="muted-text">Pick a few questions for a custom round, or let Lingua start one from your recent quiz-ready items.</p>
+                  <p className="eyebrow-label">Select</p>
+                  <h3>Questions</h3>
+                  <p className="muted-text">Optional: tick a few, or start without selecting—Lingua will use recent-ready items.</p>
                 </div>
-                <span className="mapped-column-tag">{playableItems.length} ready</span>
+                <div className="quiz-launch-header-actions">
+                  <span className="mapped-column-tag">{playableItems.length} ready</span>
+                  <div className="quiz-launch-cta-stack">
+                    <button
+                      type="button"
+                      className={!hasQuizItems && !isLoadingHub ? 'quiz-start-awaiting-items' : undefined}
+                      onClick={() => handleStartQuiz({ quizItemIds: selectedQuizItemIds })}
+                      disabled={!hasHub || isStarting || isLoadingHub || !hasQuizItems}
+                      title={!hasQuizItems && !isLoadingHub ? 'Add flashcards or study content first—questions appear when ready.' : undefined}
+                    >
+                      {hubStartLabel}
+                    </button>
+                    {!hasQuizItems && !isLoadingHub ? (
+                      <p className="muted-text quiz-start-hint">Nothing ready to quiz yet. Build flashcards from content first.</p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               {isLoadingHub ? (
                 <div className="empty-state">
-                  <h4>Loading quiz library</h4>
-                  <p className="muted-text">Loading your available questions and recent quiz rounds.</p>
+                  <h4>Loading questions</h4>
+                  <p className="muted-text">Fetching your questions and recent rounds.</p>
                 </div>
               ) : playableItems.length ? (
                 <div className="content-list">
@@ -541,18 +572,19 @@ function QuizSessionPage() {
                   })}
                 </div>
               ) : (
-                <div className="empty-state">
-                  <h4>No quiz questions yet</h4>
-                  <p className="muted-text">Create a quiz from Vocabulary or Sentences and it will appear here.</p>
+                <div className="empty-state quiz-guided-empty">
+                  <h4>No questions yet</h4>
+                  <p className="muted-text">Add questions from Vocabulary or Sentences—they show up here automatically.</p>
                 </div>
               )}
             </div>
 
-            <div className="card dashboard-section">
+            <div className="card dashboard-section quiz-launch-secondary">
               <div className="section-header">
                 <div className="section-stack-tight">
-                  <h3>Your next quiz</h3>
-                  <p className="muted-text">Use a hand-picked set, or leave this empty and start from your recent quiz-ready questions.</p>
+                  <p className="eyebrow-label">Selection</p>
+                  <h3>Optional selection</h3>
+                  <p className="muted-text">What you have ticked above—only used if you want a focused round.</p>
                 </div>
                 <span className="mapped-column-tag">{selectedPlayableItems.length} selected</span>
               </div>
@@ -572,20 +604,20 @@ function QuizSessionPage() {
                   ))}
                 </div>
               ) : (
-                <div className="empty-state compact-empty-state">
-                  <h4>No quiz items selected</h4>
-                  <p className="muted-text">You can still start a quick quiz, or pick a few questions for a more intentional round.</p>
+                <div className="empty-state compact-empty-state quiz-guided-empty">
+                  <h4>No questions selected</h4>
+                  <p className="muted-text">That is fine—use Start quiz above to launch from recent-ready items, or pick questions first.</p>
                 </div>
               )}
             </div>
           </div>
 
-          <aside className="dashboard-secondary">
-            <div className="card dashboard-section">
+          <aside className={`dashboard-secondary quiz-hub-aside quiz-aside-muted ${showQuizHubEmptyGuidance ? 'quiz-hub-aside-priority' : ''}`}>
+            <div className="card dashboard-section quiz-aside-history quiz-aside-panel">
               <div className="section-stack-tight">
-                <p className="eyebrow-label">History</p>
+                <p className="eyebrow-label">Resume</p>
                 <h3>Recent quizzes</h3>
-                <p className="muted-text">Open a finished review again or pick up an unfinished round where you left off.</p>
+                <p className="muted-text">Reopen a finished review or continue an open round.</p>
               </div>
               <div className="dashboard-stack-list">
                 {recentSessions.length ? (
@@ -602,32 +634,32 @@ function QuizSessionPage() {
                     </button>
                   ))
                 ) : (
-                  <div className="empty-state compact-empty-state">
-                    <h4>No quiz sessions yet</h4>
-                    <p className="muted-text">Finished or in-progress quiz sessions will show up here.</p>
+                  <div className="empty-state compact-empty-state quiz-guided-empty">
+                    <h4>No history yet</h4>
+                    <p className="muted-text">Finish a round and it will list here for quick review.</p>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="card dashboard-section">
+            <div className="card dashboard-section quiz-aside-types quiz-aside-panel">
               <div className="section-stack-tight">
-                <p className="eyebrow-label">Available now</p>
+                <p className="eyebrow-label">Formats</p>
                 <h3>Quiz types</h3>
-                <p className="muted-text">Right now Lingua only uses quiz formats it can check clearly and consistently.</p>
+                <p className="muted-text">Formats Lingua scores today.</p>
               </div>
               <div className="dashboard-stack-list">
                 <div className="dashboard-list-row">
                   <div>
                     <strong>Meaning recall</strong>
-                    <p className="muted-text detail-support-copy">A word prompt checked against accepted meanings.</p>
+                    <p className="muted-text detail-support-copy">Short prompt; answer with an accepted meaning.</p>
                   </div>
                   <span className="mapped-column-tag">Vocabulary</span>
                 </div>
                 <div className="dashboard-list-row">
                   <div>
                     <strong>Fill in the blank</strong>
-                    <p className="muted-text detail-support-copy">Fill in the blank using a checked sentence target.</p>
+                    <p className="muted-text detail-support-copy">Fill the blank using the sentence target.</p>
                   </div>
                   <span className="mapped-column-tag">Sentence</span>
                 </div>

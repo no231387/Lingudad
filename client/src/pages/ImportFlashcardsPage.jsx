@@ -171,13 +171,14 @@ function ImportFlashcardsPage() {
         description="Upload or paste structured data, preview the mapping, and import cards into the right deck without guessing what will happen."
       />
 
-      <div className="card form-card form-shell">
-        <label>
-          Upload CSV or TXT File
+      <div className="card form-card form-shell import-step-card">
+        <label className="import-dropzone surface-quiet">
+          <span className="import-dropzone-label">Upload CSV or TXT</span>
+          <span className="import-dropzone-hint">Drop a file here or click to browse</span>
           <input type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" onChange={handleFileUpload} />
         </label>
 
-        {fileName && <p className="muted-text">Selected file: {fileName}</p>}
+        {fileName ? <p className="muted-text import-file-name">Selected: {fileName}</p> : null}
 
         <label>
           Paste CSV or Tab-Separated Text
@@ -205,12 +206,12 @@ function ImportFlashcardsPage() {
           </label>
         </div>
 
-        <div className="action-row">
+        <div className="action-row import-primary-actions">
           <button type="button" onClick={handleParse}>
-            Preview Import
+            Preview import
           </button>
-          <button type="button" onClick={downloadSample} className="secondary-button">
-            Download Sample CSV
+          <button type="button" onClick={downloadSample} className="text-action import-sample-link">
+            Download sample CSV
           </button>
         </div>
       </div>
@@ -412,7 +413,7 @@ function ImportFlashcardsPage() {
                   ))}
                 </div>
               )}
-              <Link className="button-link" to="/decks">
+              <Link className="primary-button" to="/decks">
                 View My Decks
               </Link>
             </div>

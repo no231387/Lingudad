@@ -48,7 +48,7 @@ function CommunityFlashcardsPage() {
       <PageIntro
         eyebrow="Community"
         title="Community cards"
-        description="Explore community-created vocabulary, discover how other users organize topics, and borrow inspiration for your own study system."
+        description="Browse shared cards. Filter as needed, then copy into your decks."
       />
 
       <FilterBar filters={filters} onChange={handleFilterChange} onReset={handleReset} />

@@ -6,7 +6,7 @@ function UnauthorizedPage() {
       <div className="card">
         <h2>Access Restricted</h2>
         <p>This page is only available to admin users.</p>
-        <Link className="button-link" to="/">
+        <Link className="primary-button" to="/">
           Return to Dashboard
         </Link>
       </div>

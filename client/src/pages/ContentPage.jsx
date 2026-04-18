@@ -35,8 +35,8 @@ const initialContentForm = {
 };
 
 const CONTENT_LIBRARY_VIEWS = [
-  { id: 'community', label: 'Discover', description: 'Starter and community content.' },
-  { id: 'my_uploads', label: 'My content', description: 'Your saved videos and personal notes.' }
+  { id: 'community', label: 'Discover', description: 'Library and community content.' },
+  { id: 'my_uploads', label: 'My content', description: 'Your saved videos and notes.' }
 ];
 
 const formatSeconds = (value) => {
@@ -278,7 +278,7 @@ function ContentPage() {
       }
       await refreshContent(content._id);
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Could not update saved content.');
+      setMessage(error.response?.data?.message || 'Could not update your saved content.');
     }
   };
 
@@ -293,7 +293,7 @@ function ContentPage() {
       const { data } = await generateFlashcardsFromContent(selectedContent._id, {
         deckId: targetDeckId || undefined
       });
-      setMessage(data.message || 'Study items generated from content.');
+      setMessage(data.message || 'Flashcards added from this content.');
     } catch (error) {
       setMessage(error.response?.data?.error || error.response?.data?.message || 'Could not generate study from content.');
     } finally {
@@ -318,9 +318,9 @@ function ContentPage() {
 
       setSelectedContentId(workspaceContent._id);
       await refreshContent(workspaceContent._id, 'my_uploads');
-      setMessage(data.message || 'Your saved copy is ready.');
+      setMessage(data.message || 'Saved copy ready.');
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Could not save your own copy of this content.');
+      setMessage(error.response?.data?.message || 'Could not save a copy of this content.');
     } finally {
       setIsCreatingWorkspaceCopy(false);
     }
@@ -379,14 +379,25 @@ function ContentPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Content"
-        title="Watch, save, and study"
-        description="Watch, save, and turn useful moments into practice."
+        title="Browse, watch, practice"
+        description="Pick sources, build flashcards, then study and quiz. Content is the entry point."
         className="content-page-intro"
         meta={
-          <div className="content-page-meta">
-            <span className="mapped-column-tag">{contentSummary.communityCount || 0} in library</span>
-            <span className="mapped-column-tag">{contentSummary.savedCount || 0} saved</span>
-            <span className="mapped-column-tag">{contentSummary.recommendationReadyCount || 0} ready to practice</span>
+          <div className="content-hero-stats" role="group" aria-label="Library overview">
+            <div className="content-hero-stat">
+              <span className="content-hero-stat-value">{contentSummary.communityCount || 0}</span>
+              <span className="content-hero-stat-label">In library</span>
+            </div>
+            <span className="content-hero-stat-divider" aria-hidden="true" />
+            <div className="content-hero-stat">
+              <span className="content-hero-stat-value">{contentSummary.savedCount || 0}</span>
+              <span className="content-hero-stat-label">Saved</span>
+            </div>
+            <span className="content-hero-stat-divider" aria-hidden="true" />
+            <div className="content-hero-stat">
+              <span className="content-hero-stat-value">{contentSummary.recommendationReadyCount || 0}</span>
+              <span className="content-hero-stat-label">Ready for practice</span>
+            </div>
           </div>
         }
       />
@@ -395,14 +406,14 @@ function ContentPage() {
 
       <div className="content-page-grid content-page-grid-refined">
         <aside className="content-column content-library-column">
-          <div className="card elevated-panel content-library-panel content-library-panel-refined">
-            <div className="section-stack-tight">
-              <p className="eyebrow-label">Browse</p>
+          <div className="card elevated-panel content-library-panel content-library-panel-refined content-library-panel-light surface-quiet">
+            <div className="section-stack-tight content-library-heading">
+              <p className="eyebrow-label">1 · Browse</p>
               <h3>{activeView.label}</h3>
               <p className="muted-text">{activeView.description}</p>
             </div>
 
-            <div className="content-view-toggle content-pill-toggle">
+            <div className="content-view-tabs" role="tablist" aria-label="Library scope">
               {CONTENT_LIBRARY_VIEWS.map((view) => {
                 const count = view.id === 'community' ? contentSummary.communityCount : contentSummary.myUploadsCount;
 
@@ -410,14 +421,13 @@ function ContentPage() {
                   <button
                     key={view.id}
                     type="button"
-                    className={`selection-card content-view-card ${contentView === view.id ? 'is-selected' : ''}`}
+                    role="tab"
+                    aria-selected={contentView === view.id}
+                    className={`content-view-tab ${contentView === view.id ? 'is-selected' : ''}`}
                     onClick={() => setContentView(view.id)}
                   >
-                    <span className="selection-card-indicator" aria-hidden="true" />
-                    <span className="option-card-copy">
-                      <span className="option-card-title">{view.label}</span>
-                      <span className="muted-text">{count || 0} items</span>
-                    </span>
+                    <span className="content-view-tab-label">{view.label}</span>
+                    <span className="content-view-tab-count">{count || 0}</span>
                   </button>
                 );
               })}
@@ -432,8 +442,8 @@ function ContentPage() {
               <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4>Picked for you</h4>
-                    <p className="muted-text">A short list to try next.</p>
+                    <h4>Recommended</h4>
+                    <p className="muted-text">Based on your level and activity.</p>
                   </div>
                 </div>
                 <div className="content-recommendation-list">
@@ -460,8 +470,8 @@ function ContentPage() {
             <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4>{contentView === 'community' ? 'Library' : 'Your content'}</h4>
-                    <p className="muted-text">Select one item to open.</p>
+                    <h4 className="content-library-section-title">{contentView === 'community' ? 'Library' : 'Your content'}</h4>
+                    <p className="muted-text content-library-section-hint">Open one item.</p>
                   </div>
                 </div>
               <div className="content-list content-list-refined">
@@ -470,7 +480,7 @@ function ContentPage() {
                     <h4>{contentView === 'community' ? 'No content yet' : 'No uploads yet'}</h4>
                     <p className="muted-text">
                       {contentView === 'community'
-                        ? 'Starter and community videos will appear here as the library grows.'
+                        ? 'Community content will appear here as the library grows.'
                         : 'Add your own source when you want to save notes and practice from it.'}
                     </p>
                   </div>
@@ -595,37 +605,54 @@ function ContentPage() {
               <p className="muted-text">Fetching the selected source.</p>
             </div>
           ) : selectedContent ? (
-            <div className="content-detail-stack">
+            <div className="content-detail-stack content-detail-stack-focused">
+              <p className="content-detail-rail-label">2 · Focus</p>
               <div className="card content-viewer-card elevated-panel content-hero-panel">
-                <div className="content-detail-header">
-                  <div className="detail-block">
-                    <p className="detail-kicker">
-                      {selectedContent.visibility === 'private' ? 'Private upload' : selectedContent.isSystemContent ? 'Starter content' : 'Community content'}
-                    </p>
-                    <h3 className="detail-primary-text">{selectedContent.title}</h3>
-                    <p className="muted-text detail-support-copy">
-                      {selectedContent.sourceProvider} • {selectedContent.difficulty || 'Open level'} •{' '}
-                      {selectedContent.durationSeconds ? formatSeconds(selectedContent.durationSeconds) : 'Length not set'}
-                    </p>
-                    <div className="mapped-column-tags">
-                      <span className="mapped-column-tag">{selectedContent.visibilityLabel}</span>
-                      {selectedContent.isWorkspaceCopy ? <span className="mapped-column-tag">Your copy</span> : null}
-                      {quickTags.map((tag) => (
-                        <span key={tag} className="mapped-column-tag">
-                          {tag.replaceAll('_', ' ')}
-                        </span>
-                      ))}
+                <div className="content-hero-top">
+                  <div className="content-detail-header">
+                    <div className="detail-block">
+                      <p className="detail-kicker">
+                        {selectedContent.visibility === 'private' ? 'Private upload' : selectedContent.isSystemContent ? 'Starter content' : 'Community content'}
+                      </p>
+                      <h3 className="detail-primary-text">{selectedContent.title}</h3>
+                      <p className="muted-text detail-support-copy">
+                        {selectedContent.sourceProvider} • {selectedContent.difficulty || 'Open level'} •{' '}
+                        {selectedContent.durationSeconds ? formatSeconds(selectedContent.durationSeconds) : 'Length not set'}
+                      </p>
+                      <div className="mapped-column-tags">
+                        <span className="mapped-column-tag">{selectedContent.visibilityLabel}</span>
+                        {selectedContent.isWorkspaceCopy ? <span className="mapped-column-tag">Saved copy</span> : null}
+                        {quickTags.map((tag) => (
+                          <span key={tag} className="mapped-column-tag">
+                            {tag.replaceAll('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                  <div className="content-detail-actions">
+                  <div className="content-save-strip" aria-label="Save to your library">
                     {selectedContent.visibility !== 'private' ? (
                       <>
-                        <button type="button" className="secondary-button" onClick={() => handleToggleSave(selectedContent)}>
-                          {selectedContent.isSaved ? 'Saved' : 'Save content'}
+                        <button
+                          type="button"
+                          className={`secondary-button content-save-toggle ${selectedContent.isSaved ? 'content-save-toggle--saved' : ''}`}
+                          onClick={() => handleToggleSave(selectedContent)}
+                          aria-pressed={selectedContent.isSaved}
+                        >
+                          {selectedContent.isSaved ? (
+                            <>
+                              <span className="content-save-toggle-check" aria-hidden="true">
+                                ✓
+                              </span>
+                              Saved
+                            </>
+                          ) : (
+                            'Save for later'
+                          )}
                         </button>
                         {canCreateWorkspaceCopy ? (
-                          <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
-                            {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+                          <button type="button" className="secondary-button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                            {isCreatingWorkspaceCopy ? 'Saving...' : 'Create editable copy'}
                           </button>
                         ) : null}
                       </>
@@ -636,7 +663,7 @@ function ContentPage() {
                 </div>
 
                 {selectedContent.contentType === 'youtube' && selectedContent.embedUrl ? (
-                  <div className="video-frame-wrapper">
+                  <div className="video-frame-wrapper content-video-focus">
                     <iframe
                       src={selectedContent.embedUrl}
                       title={selectedContent.title}
@@ -653,71 +680,77 @@ function ContentPage() {
               </div>
 
               <div className="card elevated-panel content-study-focus-panel">
-                <div className="section-stack-tight">
-                  <p className="eyebrow-label">Study</p>
-                  <h3>Practice from this content</h3>
-                  <p className="muted-text">Refresh your practice set, then make flashcards once matches are ready.</p>
+                <div className="content-practice-head">
+                  <p className="eyebrow-label">3 · Practice</p>
+                  <h3>Practice</h3>
+                  <p className="muted-text">Start when items are ready. Refresh to update your practice set, then add flashcards if you want cards in a deck.</p>
                 </div>
 
-                <div className="content-readiness-grid">
-                  <div className="subsurface-panel content-readiness-card">
+                <div className="content-readiness-grid content-readiness-support">
+                  <div className="content-readiness-stat">
                     <span className="content-readiness-value">{studySummary.listeningReadySegmentCount || 0}</span>
                     <span className="muted-text">listening clips</span>
                   </div>
-                  <div className="subsurface-panel content-readiness-card">
+                  <div className="content-readiness-stat">
                     <span className="content-readiness-value">{studySummary.quizCandidateCount || 0}</span>
-                    <span className="muted-text">quiz prompts</span>
+                    <span className="muted-text">questions</span>
                   </div>
-                  <div className="subsurface-panel content-readiness-card">
+                  <div className="content-readiness-stat">
                     <span className="content-readiness-value">{studySummary.trustedLinkedSegmentCount || 0}</span>
-                    <span className="muted-text">matched study items</span>
+                    <span className="muted-text">matches</span>
                   </div>
                 </div>
 
-                <div className="content-primary-actions">
+                <div className="content-practice-cta">
                   <button
                     type="button"
+                    className="content-practice-start"
                     onClick={handleStartStudyFromContent}
                     disabled={isStartingContentStudy || !contentStudyPack?.items?.length}
                   >
-                    {isStartingContentStudy ? 'Starting practice...' : 'Start Practice'}
+                    {isStartingContentStudy ? 'Starting...' : 'Start practice'}
                   </button>
+                </div>
+
+                <div className="content-practice-tools">
                   {!canEditTranscript && canCreateWorkspaceCopy ? (
-                    <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
-                      {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+                    <button type="button" className="secondary-button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                      {isCreatingWorkspaceCopy ? 'Saving...' : 'Create editable copy'}
                     </button>
                   ) : null}
-                  <button type="button" onClick={() => loadContentStudyPack(selectedContentId)} disabled={isLoadingContentStudy}>
-                    {isLoadingContentStudy ? 'Refreshing practice...' : 'Refresh Practice Set'}
+                  <button type="button" className="text-action" onClick={() => loadContentStudyPack(selectedContentId)} disabled={isLoadingContentStudy}>
+                    {isLoadingContentStudy ? 'Updating...' : 'Refresh practice set'}
                   </button>
-                  <div className="content-generate-inline">
-                    <label>
-                      Deck
-                      <select value={targetDeckId} onChange={(event) => setTargetDeckId(event.target.value)}>
-                        <option value="">No deck selected</option>
-                        {decks.map((deck) => (
-                          <option key={deck._id} value={deck._id}>
-                            {deck.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      disabled={isGeneratingStudy || !selectedContent.studyGenerationReady}
-                      onClick={handleGenerateStudyFromContent}
-                    >
-                      {isGeneratingStudy ? 'Generating...' : 'Make Flashcards'}
-                    </button>
-                  </div>
                 </div>
+
+                <div className="content-practice-deck-row">
+                  <label>
+                    Deck
+                    <select value={targetDeckId} onChange={(event) => setTargetDeckId(event.target.value)}>
+                      <option value="">No deck selected</option>
+                      {decks.map((deck) => (
+                        <option key={deck._id} value={deck._id}>
+                          {deck.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={isGeneratingStudy || !selectedContent.studyGenerationReady}
+                    onClick={handleGenerateStudyFromContent}
+                  >
+                    {isGeneratingStudy ? 'Adding...' : 'Add flashcards'}
+                  </button>
+                </div>
+
                 <DisclosurePanel
                   title="Practice set"
                   description={
                     contentStudyPack?.items?.length
-                      ? `${contentStudyPack.items.length} practice item${contentStudyPack.items.length === 1 ? '' : 's'} ready to preview.`
-                      : 'No practice items yet.'
+                      ? `${contentStudyPack.items.length} item${contentStudyPack.items.length === 1 ? '' : 's'} in your practice set.`
+                      : 'Your practice set is empty.'
                   }
                   defaultOpen={Boolean(contentStudyPack?.items?.length)}
                 >
@@ -743,132 +776,135 @@ function ContentPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="muted-text">Save lines first. Quiz prompts appear after Lingua finds solid matches.</p>
+                    <p className="muted-text">Save lines first. Questions appear after Lingua finds solid matches.</p>
                   )}
                 </DisclosurePanel>
               </div>
 
-              <DisclosurePanel title="Lines and timing" description="Add lines from the video and review what has been saved.">
-                <div className="content-summary-strip">
-                  <span className="mapped-column-tag">{transcriptSummary.segmentCount || 0} lines</span>
-                  <span className="mapped-column-tag">{transcriptSummary.linkedSentenceCount || 0} sentence matches</span>
-                  <span className="mapped-column-tag">{transcriptSummary.linkedVocabularyCount || 0} word matches</span>
-                </div>
-                {canEditTranscript ? (
-                  <>
-                <label>
-                  Line source
-                  <select value={transcriptSource} onChange={(event) => setTranscriptSource(event.target.value)}>
-                    <option value="manual">Manual</option>
-                    <option value="youtube_caption">YouTube caption</option>
-                    <option value="uploaded_file">Uploaded file</option>
-                    <option value="trusted_link">Trusted link</option>
-                  </select>
-                </label>
-                <label>
-                  Lines with timing
-                  <textarea
-                    value={transcriptDraft}
-                    onChange={(event) => setTranscriptDraft(event.target.value)}
-                    rows="6"
-                    placeholder={'0:00-0:04|こんにちは、今日はいい天気です。\n0:05-0:09|駅まで歩きましょう。'}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handleSaveTranscript}
-                  disabled={isSavingTranscript || !transcriptDraft.trim()}
-                >
-                  {isSavingTranscript ? 'Saving lines...' : 'Save Lines'}
-                </button>
-                  </>
-                ) : (
-                  <div className="empty-state compact-empty-state">
-                    <h4>Save your own copy to edit</h4>
-                    <p className="muted-text">
-                      Shared content stays protected. Save your own copy to add lines, build matches, and practice from it.
-                    </p>
-                    {canCreateWorkspaceCopy ? (
-                      <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
-                        {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+              <DisclosurePanel
+                title="Transcript & details"
+                description="Lines, tags, and source info—open when you need them."
+                defaultOpen={false}
+                className="content-details-merged"
+              >
+                <div className="content-details-section">
+                  <h4 className="content-details-heading">Transcript</h4>
+                  <div className="content-summary-strip">
+                    <span className="mapped-column-tag">{transcriptSummary.segmentCount || 0} lines</span>
+                    <span className="mapped-column-tag">{transcriptSummary.linkedSentenceCount || 0} sentence matches</span>
+                    <span className="mapped-column-tag">{transcriptSummary.linkedVocabularyCount || 0} word matches</span>
+                  </div>
+                  {canEditTranscript ? (
+                    <>
+                      <label>
+                        Line source
+                        <select value={transcriptSource} onChange={(event) => setTranscriptSource(event.target.value)}>
+                          <option value="manual">Manual</option>
+                          <option value="youtube_caption">YouTube caption</option>
+                          <option value="uploaded_file">Uploaded file</option>
+                          <option value="trusted_link">Trusted link</option>
+                        </select>
+                      </label>
+                      <label>
+                        Lines with timing
+                        <textarea
+                          value={transcriptDraft}
+                          onChange={(event) => setTranscriptDraft(event.target.value)}
+                          rows="6"
+                          placeholder={'0:00-0:04|こんにちは、今日はいい天気です。\n0:05-0:09|駅まで歩きましょう。'}
+                        />
+                      </label>
+                      <button type="button" className="secondary-button" onClick={handleSaveTranscript} disabled={isSavingTranscript || !transcriptDraft.trim()}>
+                        {isSavingTranscript ? 'Saving lines...' : 'Save lines'}
                       </button>
-                    ) : null}
-                  </div>
-                )}
-                {isLoadingTranscript ? (
-                  <p className="muted-text">Loading saved lines...</p>
-                ) : transcriptSegments.length > 0 ? (
-                  <div className="content-transcript-list">
-                    {transcriptSegments.slice(0, 8).map((segment) => (
-                      <div key={segment._id} className="content-transcript-item">
-                        <div className="content-transcript-time">
-                          {formatSeconds(segment.startTimeSeconds)}-{formatSeconds(segment.endTimeSeconds)}
+                    </>
+                  ) : (
+                    <div className="empty-state compact-empty-state">
+                      <p className="muted-text">
+                        Shared sources are read-only here. Create an editable copy to add lines, link matches, and build flashcards.
+                      </p>
+                      {canCreateWorkspaceCopy ? (
+                        <button type="button" className="secondary-button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                          {isCreatingWorkspaceCopy ? 'Saving...' : 'Create editable copy'}
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+                  {isLoadingTranscript ? (
+                    <p className="muted-text">Loading saved lines...</p>
+                  ) : transcriptSegments.length > 0 ? (
+                    <div className="content-transcript-list">
+                      {transcriptSegments.slice(0, 8).map((segment) => (
+                        <div key={segment._id} className="content-transcript-item">
+                          <div className="content-transcript-time">
+                            {formatSeconds(segment.startTimeSeconds)}-{formatSeconds(segment.endTimeSeconds)}
+                          </div>
+                          <div className="content-transcript-copy">
+                            <strong>{segment.rawText}</strong>
+                            <span className="muted-text">
+                              {formatStudyLabel(segment.validationStatus)} • {segment.trustedLinkCount || 0} matches
+                            </span>
+                          </div>
                         </div>
-                        <div className="content-transcript-copy">
-                          <strong>{segment.rawText}</strong>
-                          <span className="muted-text">
-                            {formatStudyLabel(segment.validationStatus)} • {segment.trustedLinkCount || 0} matches
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="muted-text">No lines saved yet.</p>
-                )}
-              </DisclosurePanel>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted-text">No lines saved yet.</p>
+                  )}
+                </div>
 
-              <DisclosurePanel title="About this content" description="Tags, source details, and learning notes.">
-                <div className="mapping-grid">
-                  <div className="detail-section-card">
-                    <h4>Overview</h4>
-                    <p className="muted-text">Type: {selectedContent.contentType}</p>
-                    <p className="muted-text">Source type: {selectedContent.sourceType}</p>
-                    <p className="muted-text">Visibility: {selectedContent.visibilityLabel}</p>
-                    <p className="muted-text">Saved lines: {selectedContent.transcriptStatus}</p>
-                  </div>
-                  <div className="detail-section-card">
-                    <h4>Tags</h4>
-                    <div className="choice-chip-row">
-                      {[...(selectedContent.topicTags || []), ...(selectedContent.registerTags || []), ...(selectedContent.skillTags || [])]
-                        .slice(0, 10)
-                        .map((tag) => (
-                          <span key={tag} className="choice-chip">
-                            {tag}
-                          </span>
-                        ))}
+                <div className="content-details-section">
+                  <h4 className="content-details-heading">About</h4>
+                  <div className="mapping-grid content-details-about">
+                    <div className="detail-section-card detail-section-card-plain">
+                      <p className="muted-text">Type: {selectedContent.contentType}</p>
+                      <p className="muted-text">Source type: {selectedContent.sourceType}</p>
+                      <p className="muted-text">Visibility: {selectedContent.visibilityLabel}</p>
+                      <p className="muted-text">Saved lines: {selectedContent.transcriptStatus}</p>
+                    </div>
+                    <div className="detail-section-card detail-section-card-plain">
+                      <p className="muted-text detail-section-label">Tags</p>
+                      <div className="choice-chip-row">
+                        {[...(selectedContent.topicTags || []), ...(selectedContent.registerTags || []), ...(selectedContent.skillTags || [])]
+                          .slice(0, 10)
+                          .map((tag) => (
+                            <span key={tag} className="choice-chip">
+                              {tag}
+                            </span>
+                          ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </DisclosurePanel>
 
-              <DisclosurePanel title="More details" description="Extra status and source details.">
-                <div className="mapping-grid">
-                  <div className="detail-section-card">
-                    <h4>Practice status</h4>
-                    <p className="muted-text">Found from: {selectedContent.discoverySource}</p>
-                    <p className="muted-text">Ready to practice: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
-                    <p className="muted-text">Line source: {selectedContent.transcriptSource || 'none'}</p>
-                    <p className="muted-text">Word matches: {selectedContent.linkedVocabularyIds?.length || 0}</p>
-                    <p className="muted-text">Sentence matches: {selectedContent.linkedSentenceIds?.length || 0}</p>
-                  </div>
-                  <div className="detail-section-card">
-                    <h4>Source details</h4>
-                    <p className="muted-text">Copy type: {selectedContent.isWorkspaceCopy ? 'your saved copy' : 'shared original'}</p>
-                    {selectedContent.workspaceSourceContentId ? (
-                      <p className="muted-text">Original shared item: {selectedContent.workspaceSourceContentId}</p>
-                    ) : null}
-                    <p className="muted-text">Source URL: {selectedContent.sourceUrl || 'Not provided'}</p>
-                    <p className="muted-text">Added by: {selectedContent.provenance?.ingestionMethod || 'manual'}</p>
-                    <p className="muted-text">Saved title: {selectedContent.provenance?.sourceSnapshotTitle || selectedContent.title}</p>
+                <div className="content-details-section">
+                  <h4 className="content-details-heading">Status & source</h4>
+                  <div className="mapping-grid">
+                    <div className="detail-section-card detail-section-card-plain">
+                      <p className="muted-text">Found from: {selectedContent.discoverySource}</p>
+                      <p className="muted-text">Ready to practice: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
+                      <p className="muted-text">Line source: {selectedContent.transcriptSource || 'none'}</p>
+                      <p className="muted-text">Word matches: {selectedContent.linkedVocabularyIds?.length || 0}</p>
+                      <p className="muted-text">Sentence matches: {selectedContent.linkedSentenceIds?.length || 0}</p>
+                    </div>
+                    <div className="detail-section-card detail-section-card-plain">
+                      <p className="muted-text">Copy type: {selectedContent.isWorkspaceCopy ? 'Saved copy' : 'Shared (original)'}</p>
+                      {selectedContent.workspaceSourceContentId ? (
+                        <p className="muted-text">Original shared item: {selectedContent.workspaceSourceContentId}</p>
+                      ) : null}
+                      <p className="muted-text">Source URL: {selectedContent.sourceUrl || 'Not provided'}</p>
+                      <p className="muted-text">Added by: {selectedContent.provenance?.ingestionMethod || 'manual'}</p>
+                      <p className="muted-text">Saved title: {selectedContent.provenance?.sourceSnapshotTitle || selectedContent.title}</p>
+                    </div>
                   </div>
                 </div>
               </DisclosurePanel>
             </div>
           ) : (
-            <div className="card empty-state empty-state-emphasis">
-              <h4>Select content</h4>
-              <p className="muted-text">Choose something from the library to open it and start practicing from it.</p>
+            <div className="card empty-state empty-state-emphasis content-detail-empty">
+              <p className="eyebrow-label">Focus</p>
+              <h4>Select something to watch</h4>
+              <p className="muted-text">Pick an item from the list on the left to open the player and practice tools here.</p>
             </div>
           )}
         </div>

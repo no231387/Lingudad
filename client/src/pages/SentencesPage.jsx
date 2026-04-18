@@ -153,7 +153,7 @@ function SentencesPage() {
       setMessage('');
       const { data } = await createQuizFromSentence(selectedItem._id);
       setLastQuiz(data);
-      setMessage('Quiz created from this sentence.');
+      setMessage('Quiz question added from this sentence.');
     } catch (error) {
       console.error('Failed to create quiz from sentence:', error);
       setMessage(error.response?.data?.message || 'Could not create a quiz from this sentence.');
@@ -163,10 +163,10 @@ function SentencesPage() {
   };
 
   const primaryItems = hasSearched ? searchResults : recommended;
-  const primaryTitle = hasSearched ? 'Matching sentences' : 'Picked for your study style';
+  const primaryTitle = hasSearched ? 'Matching sentences' : 'Recommended';
   const primaryDescription = hasSearched
-    ? 'Search results become the main list so you can scan, select, and study faster.'
-    : selectedPreset?.description || 'Recommendations based on your current focus.';
+    ? 'Results replace the main list for review.'
+    : selectedPreset?.description || 'Suggested from your profile and recent activity.';
   const secondaryTitle = hasSearched ? 'More ideas' : 'Search results';
   const secondaryDescription = hasSearched
     ? 'Keep a few suggested sentences nearby while you inspect search matches.'
@@ -175,11 +175,11 @@ function SentencesPage() {
   const shouldShowCompactTutorial = isTutorialDismissed && !isTutorialExpanded;
 
   return (
-    <section className="page-section">
+    <section className="page-section learning-page">
       <PageIntro
         eyebrow="Sentences"
-        title="Sentences"
-        description="Find a sentence, inspect the details, and turn it into something you can study."
+        title="Example sentences"
+        description="Browse and search on the left, read the full sentence on the right, then add flashcards or quiz questions."
       />
 
       {!shouldShowCompactTutorial ? (
@@ -206,7 +206,7 @@ function SentencesPage() {
             <div className="tutorial-steps tutorial-steps-compact">
               <div className="tutorial-step"><strong>1</strong><span>Pick a preset or run a focused search.</span></div>
               <div className="tutorial-step"><strong>2</strong><span>Select one sentence from the main list.</span></div>
-              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or quiz from the detail panel.</span></div>
+              <div className="tutorial-step"><strong>3</strong><span>Add a flashcard or quiz question from the detail panel.</span></div>
             </div>
           ) : null}
         </div>
@@ -228,13 +228,13 @@ function SentencesPage() {
 
       {message ? <div className="card status-panel">{message}</div> : null}
 
-      <div className={`learning-page-grid ${selectedItem ? 'has-selection' : ''}`}>
-        <div className="content-column learning-sidebar-column">
-          <form className="card form-card form-shell elevated-panel learning-tool-panel" onSubmit={handleSearch}>
+      <div className={`learning-page-grid learning-flow-grid ${selectedItem ? 'has-selection' : ''}`}>
+        <div className="content-column learning-sidebar-column learning-flow-sidebar">
+          <form className="card form-card form-shell elevated-panel learning-tool-panel learning-tool-rail" onSubmit={handleSearch}>
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Find</p>
+              <p className="eyebrow-label">Discover</p>
               <h3>Find sentences</h3>
-              <p className="muted-text">Pick a study style, search if needed, and keep this panel simple.</p>
+              <p className="muted-text">Preset shapes suggestions; search finds exact text or a translation.</p>
             </div>
 
             <div className="learning-tool-block">
@@ -394,9 +394,9 @@ function SentencesPage() {
           </div>
         </div>
 
-        <div className="content-column learning-detail-column">
+        <div className="content-column learning-detail-column learning-flow-detail">
           {selectedItem ? (
-            <div className="card content-viewer-card elevated-panel sentence-detail-card">
+            <div className="card content-viewer-card elevated-panel sentence-detail-card learning-detail-focus">
               <div className="section-header">
                 <div className="sentence-hero-copy">
                   <p className="detail-kicker">Inspect</p>
@@ -407,22 +407,23 @@ function SentencesPage() {
 
               <div className="study-action-panel learning-action-panel">
                 <div className="study-action-copy">
-                  <h4>Study this sentence</h4>
-                  <p className="muted-text">Keep actions close to the content so you can inspect, then act immediately.</p>
+                  <p className="eyebrow-label">Turn it into practice</p>
+                  <h4>Flashcards & questions</h4>
+                  <p className="muted-text">Source-backed sentences only—Lingua does not invent translations.</p>
                 </div>
                 <div className="study-action-grid">
                   <button type="button" className="study-action-card" onClick={handleCreateFlashcard} disabled={isCreatingFlashcard}>
-                    <span className="study-action-card-title">{isCreatingFlashcard ? 'Creating...' : 'Create Flashcard'}</span>
+                    <span className="study-action-card-title">{isCreatingFlashcard ? 'Adding...' : 'Add flashcard'}</span>
                     <span className="study-action-card-copy">Review meaning and reading</span>
                   </button>
                   <button
                     type="button"
                     className="secondary-button study-action-card"
-                    title="Create a fill-in-the-blank quiz from this sentence"
+                    title="Add a fill-in quiz question from this sentence"
                     onClick={handleCreateQuiz}
                     disabled={isCreatingQuiz}
                   >
-                    <span className="study-action-card-title">{isCreatingQuiz ? 'Creating...' : 'Create Quiz (Fill-in)'}</span>
+                    <span className="study-action-card-title">{isCreatingQuiz ? 'Adding...' : 'Add question (fill-in)'}</span>
                     <span className="study-action-card-copy">Test recall from context</span>
                   </button>
                 </div>
@@ -527,12 +528,12 @@ function SentencesPage() {
               {lastQuiz ? (
                 <div className="study-preview-card">
                   <div className="section-stack-tight">
-                    <h4>Latest quiz</h4>
+                    <h4>New quiz question</h4>
                     <p>{lastQuiz.prompt}</p>
                     <p className="muted-text">Answer: {lastQuiz.correctAnswer}</p>
                     <div className="action-row">
                       <button type="button" className="secondary-button" onClick={() => navigate(`/quiz?quizItemId=${lastQuiz._id}`)}>
-                        Play this quiz
+                        Start
                       </button>
                     </div>
                   </div>
@@ -540,9 +541,10 @@ function SentencesPage() {
               ) : null}
             </div>
           ) : (
-            <div className="card empty-state empty-state-emphasis">
+            <div className="card empty-state empty-state-emphasis learning-detail-empty">
+              <p className="eyebrow-label">Detail</p>
               <h4>Select a sentence</h4>
-              <p className="muted-text">Choose a suggested or matching sentence to inspect it and create something to study.</p>
+              <p className="muted-text">Choose a row in the lists to see translations, links, and study actions here.</p>
             </div>
           )}
         </div>

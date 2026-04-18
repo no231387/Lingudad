@@ -27,6 +27,7 @@ function FlashcardListPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [showFlashcards, setShowFlashcards] = useState(true);
   const [formKey, setFormKey] = useState(0);
+  const [hasLoadedList, setHasLoadedList] = useState(false);
 
   const loadFlashcards = async (activeFilters = filters) => {
     try {
@@ -37,6 +38,8 @@ function FlashcardListPage() {
       });
     } catch (error) {
       console.error('Failed to fetch flashcards:', error);
+    } finally {
+      setHasLoadedList(true);
     }
   };
 
@@ -113,6 +116,9 @@ function FlashcardListPage() {
     }
   };
 
+  const filtersAreDefault = Object.entries(filters).every(([key, value]) => value === initialFilters[key]);
+  const showEmptyLibraryOnboarding = hasLoadedList && flashcards.length === 0 && filtersAreDefault;
+
   const handleCreate = async (formData) => {
     try {
       await createFlashcard(formData);
@@ -154,7 +160,7 @@ function FlashcardListPage() {
         <strong>Example:</strong> {card.exampleSentence || 'No example yet'}
       </p>
       <div className="action-row">
-        <Link className="button-link" to={`/edit/${card._id}`}>
+        <Link className="secondary-button" to={`/edit/${card._id}`}>
           Edit
         </Link>
         <button type="button" onClick={() => handleResetProficiency(card._id)} className="secondary-button">
@@ -172,20 +178,41 @@ function FlashcardListPage() {
       <PageIntro
         eyebrow="Flashcards"
         title="Flashcards"
-        description="Search, sort, and refine your flashcard library while keeping creation and maintenance actions close at hand."
+        description={
+          showEmptyLibraryOnboarding
+            ? 'Your cards live here once you create them from content or add them yourself.'
+            : 'Search, sort, and refine your flashcard library while keeping creation and maintenance actions close at hand.'
+        }
         actions={
-          <>
-            <button type="button" onClick={() => setShowAddForm((current) => !current)}>
-              {showAddForm ? 'Hide add form' : 'Add flashcard'}
-            </button>
-            <button type="button" onClick={handleRemoveDuplicates} className="secondary-button">
-              Remove duplicate words
-            </button>
-          </>
+          showEmptyLibraryOnboarding ? null : (
+            <>
+              <button type="button" className="secondary-button" onClick={() => setShowAddForm((current) => !current)}>
+                {showAddForm ? 'Hide add form' : 'Add flashcard'}
+              </button>
+              <button type="button" onClick={handleRemoveDuplicates} className="secondary-button">
+                Remove duplicate words
+              </button>
+            </>
+          )
         }
       />
 
-      <div className="flashcards-workspace">
+      {flashcards.length === 0 && showEmptyLibraryOnboarding ? (
+        <div className="card elevated-panel step35-empty-guidance flashcards-empty-onboarding step4-onboarding-focus">
+          <h3>No flashcards yet</h3>
+          <p className="muted-text">Create flashcards from content to start learning.</p>
+          <div className="action-row step35-empty-actions">
+            <Link to="/content" className="primary-button">
+              Go to Content
+            </Link>
+            <Link to="/add" className="text-action">
+              Add one manually
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <div className={`flashcards-workspace ${showEmptyLibraryOnboarding ? 'flashcards-workspace-onboarding' : ''}`}>
         <FilterBar filters={filters} onChange={handleFilterChange} onReset={handleReset} />
         <div className="card flashcards-add-panel">
           <div className="section-header">
@@ -219,26 +246,30 @@ function FlashcardListPage() {
         </div>
       </div>
 
-      <div className="card flashcards-results-header">
-        <div className="flashcards-results-copy">
-          <h3>All Flashcards</h3>
-          <p className="muted-text">
-            {flashcards.length} {flashcards.length === 1 ? 'flashcard' : 'flashcards'} found
-          </p>
-        </div>
-        <button type="button" onClick={() => setShowFlashcards((current) => !current)} className="secondary-button">
-          {showFlashcards ? 'Collapse' : 'Show Flashcards'}
-        </button>
-      </div>
+      {!showEmptyLibraryOnboarding ? (
+        <>
+          <div className="card flashcards-results-header">
+            <div className="flashcards-results-copy">
+              <h3>All Flashcards</h3>
+              <p className="muted-text">
+                {flashcards.length} {flashcards.length === 1 ? 'flashcard' : 'flashcards'} found
+              </p>
+            </div>
+            <button type="button" onClick={() => setShowFlashcards((current) => !current)} className="secondary-button">
+              {showFlashcards ? 'Collapse' : 'Show Flashcards'}
+            </button>
+          </div>
 
-      {showFlashcards && <div className="list-grid">{flashcards.map((card) => renderFlashcard(card))}</div>}
+          {showFlashcards && <div className="list-grid">{flashcards.map((card) => renderFlashcard(card))}</div>}
+        </>
+      ) : null}
 
-      {flashcards.length === 0 && (
+      {flashcards.length === 0 && !showEmptyLibraryOnboarding && hasLoadedList ? (
         <div className="empty-state card">
           <h4>No flashcards found</h4>
           <p className="muted-text">Try widening your filters or create a new flashcard to start building your library.</p>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

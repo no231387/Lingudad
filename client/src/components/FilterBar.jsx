@@ -1,6 +1,6 @@
 function FilterBar({ filters, onChange, onReset }) {
   return (
-    <section className="card filter-panel">
+    <section className="card filter-panel surface-quiet filter-panel-toned">
       <div className="section-header">
         <div>
           <h3>Filter results</h3>

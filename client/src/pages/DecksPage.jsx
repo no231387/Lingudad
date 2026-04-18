@@ -197,7 +197,7 @@ function DecksPage() {
         description="Create personal decks, curate the cards inside them, and turn any focused topic into a reusable study flow."
       />
 
-      <form className="card form-card form-shell" onSubmit={handleSubmit}>
+      <form className="card form-card form-shell deck-create-form" onSubmit={handleSubmit}>
         <div className="section-header">
           <div>
             <h3>{editingDeckId ? 'Edit deck' : 'Create a new deck'}</h3>
@@ -285,34 +285,36 @@ function DecksPage() {
         )}
       </form>
 
-      <div className="list-grid">
+      <div className="list-grid deck-list-grid">
         {decks.map((deck) => (
-          <article key={deck._id} className="card">
+          <article key={deck._id} className="card deck-card">
             <h3>{deck.name}</h3>
-            <p>
-              <strong>Language:</strong> {deck.language || 'Not set'}
+            <p className="deck-card-meta">
+              <span className="muted-text">{deck.language || 'Language not set'}</span>
+              {deck.description ? <span className="muted-text deck-card-desc">{deck.description}</span> : null}
             </p>
-            <p>
-              <strong>Description:</strong> {deck.description || 'No description yet'}
-            </p>
-            <div className="action-row">
-              <Link className="button-link" to={`/study?deck=${deck._id}`}>
-                Study This Deck
+            <div className="deck-card-actions">
+              <Link className="primary-button deck-card-primary" to={`/study?deck=${deck._id}`}>
+                Study deck
               </Link>
-              <button type="button" onClick={() => handleEdit(deck)}>
-                Edit
-              </button>
-              <button type="button" onClick={() => handleResetDeckProficiency(deck._id, deck.name)} className="secondary-button">
-                Reset Deck Proficiency
-              </button>
-              <button type="button" onClick={() => handleDelete(deck._id)} className="danger-button">
-                Delete
-              </button>
-              {String(deck.owner?._id || deck.owner) === String(user?._id) && (
-                <button type="button" onClick={() => handleImportToOfficial(deck._id)} className="secondary-button">
-                  Add to Official Beginner Decks
+              <div className="deck-card-actions-row">
+                <button type="button" className="secondary-button" onClick={() => handleEdit(deck)}>
+                  Edit
                 </button>
-              )}
+                <button type="button" className="secondary-button" onClick={() => handleResetDeckProficiency(deck._id, deck.name)}>
+                  Reset progress
+                </button>
+              </div>
+              <div className="deck-card-actions-row deck-card-actions-low">
+                {String(deck.owner?._id || deck.owner) === String(user?._id) ? (
+                  <button type="button" className="text-action" onClick={() => handleImportToOfficial(deck._id)}>
+                    Add to official decks
+                  </button>
+                ) : null}
+                <button type="button" onClick={() => handleDelete(deck._id)} className="danger-button">
+                  Delete deck
+                </button>
+              </div>
             </div>
           </article>
         ))}

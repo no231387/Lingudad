@@ -129,7 +129,7 @@ function OfficialBeginnerDecksPage() {
       <PageIntro
         eyebrow="Official decks"
         title="Official decks"
-        description="Maintain curated starter decks that everyone in Lingua can browse, open, and learn from."
+        description="Curated starter decks for the shared library. Create, edit, or remove official entries."
       />
 
       <form className="card form-card form-shell" onSubmit={handleSubmit}>
