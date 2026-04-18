@@ -12,6 +12,8 @@ const createDefaultOverview = () => ({
   decks: []
 });
 
+const RECENT_SESSIONS_HOME_LIMIT = 4;
+
 function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
   const [overview, setOverview] = useState(initialOverview || createDefaultOverview());
 
@@ -34,8 +36,9 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
     loadDashboard();
   }, [initialOverview, onOverviewLoaded]);
 
-  const hasSessions = overview.continueLearning.sessions.length > 0;
-  const hasSavedContent = overview.continueLearning.savedContent.length > 0;
+  const sessions = overview.continueLearning.sessions || [];
+  const recentSessions = sessions.slice(0, RECENT_SESSIONS_HOME_LIMIT);
+  const hasSessions = sessions.length > 0;
   const hasRecommendedContent = overview.recommendedContent.length > 0;
   const hasRecommendedPresets = overview.recommendedPresets.length > 0;
   const hasDecks = overview.decks.length > 0;
@@ -51,7 +54,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
         description={
           isNewUserFlow
             ? 'Start from content, then generate flashcards to study and quiz.'
-            : 'Resume recent work or open a lighter review pass.'
+            : 'Resume study, review cards, or browse recommendations below.'
         }
         actions={
           <div className="page-intro-actions-stack dashboard-intro-actions">
@@ -80,77 +83,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
 
       <div className="dashboard-grid">
         <div className="dashboard-primary">
-          <section className="card dashboard-section dashboard-focus-card dashboard-continue-focus">
-            <div className="section-header">
-              <div>
-                <p className="eyebrow-label">Continue</p>
-                <h3>Pick up where you left off</h3>
-                <p className="muted-text">Recent sessions and saved sources.</p>
-              </div>
-            </div>
-
-            <div className="dashboard-split-grid dashboard-continue-split">
-              <div className="subsurface-panel dashboard-continue-panel dashboard-session-primary">
-                <div className="section-stack-tight">
-                  <h4>Recent sessions</h4>
-                  <p className="muted-text">Resume a deck or mixed review.</p>
-                </div>
-                {hasSessions ? (
-                  <div className="dashboard-stack-list">
-                    {overview.continueLearning.sessions.map((session) => (
-                      <div key={session._id} className="dashboard-list-row">
-                        <div>
-                          <strong>{session.deck?.name || 'Mixed session'}</strong>
-                          <p className="muted-text detail-support-copy">{new Date(session.completedAt).toLocaleString()}</p>
-                        </div>
-                        <span className="mapped-column-tag">{session.reviewedCount} cards</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state compact-empty-state dashboard-guided-empty">
-                    <h4>No sessions yet</h4>
-                    <p className="muted-text">Finish a study round and it will show here.</p>
-                    <Link className="secondary-button" to="/study">
-                      Go to Study
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              <div className="subsurface-panel dashboard-continue-panel dashboard-saved-quiet">
-                <div className="section-stack-tight">
-                  <h4>Your saved content</h4>
-                  <p className="muted-text">Saved for later from Content.</p>
-                </div>
-                {hasSavedContent ? (
-                  <div className="dashboard-stack-list">
-                    {overview.continueLearning.savedContent.map((item) => (
-                      <div key={item._id} className="dashboard-list-row">
-                        <div>
-                          <strong>{item.title}</strong>
-                          <p className="muted-text detail-support-copy">{item.sourceProvider}</p>
-                        </div>
-                        <Link className="secondary-button" to="/content">
-                          Open
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state compact-empty-state dashboard-guided-empty">
-                    <h4>Nothing saved yet</h4>
-                    <p className="muted-text">Save something from Content and it appears here.</p>
-                    <Link className="secondary-button" to="/content">
-                      Browse content
-                    </Link>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="card dashboard-section dashboard-recommended-band">
+          <section className="card dashboard-section dashboard-recommended-band dashboard-home-recommended">
             <div className="section-header">
               <div>
                 <p className="eyebrow-label">Recommended</p>
@@ -171,7 +104,9 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                     </div>
                     <div className="section-stack-tight">
                       <h4>{item.title}</h4>
-                      <p className="muted-text">{item.difficulty || 'Open level'} • {item.visibilityBadge || item.visibilityLabel}</p>
+                      <p className="muted-text">
+                        {item.difficulty || 'Open level'} • {item.visibilityBadge || item.visibilityLabel}
+                      </p>
                     </div>
                     <Link className="secondary-button" to="/content">
                       Open
@@ -183,6 +118,36 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
               <div className="empty-state dashboard-guided-empty">
                 <h4>No picks yet</h4>
                 <p className="muted-text">As you study more, recommendations improve.</p>
+              </div>
+            )}
+          </section>
+
+          <section className="card dashboard-section dashboard-recent-slab">
+            <div className="section-header dashboard-recent-header">
+              <div>
+                <p className="eyebrow-label">Recent</p>
+                <p className="muted-text dashboard-recent-sub">Last study rounds.</p>
+              </div>
+            </div>
+
+            {hasSessions ? (
+              <div className="dashboard-stack-list dashboard-recent-list">
+                {recentSessions.map((session) => (
+                  <div key={session._id} className="dashboard-list-row dashboard-recent-row">
+                    <div>
+                      <strong>{session.deck?.name || 'Mixed session'}</strong>
+                      <p className="muted-text detail-support-copy">{new Date(session.completedAt).toLocaleString()}</p>
+                    </div>
+                    <span className="mapped-column-tag">{session.reviewedCount} cards</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="empty-state compact-empty-state dashboard-recent-empty">
+                <p className="muted-text">No sessions yet.</p>
+                <Link className="secondary-button" to="/study">
+                  Go to Study
+                </Link>
               </div>
             )}
           </section>

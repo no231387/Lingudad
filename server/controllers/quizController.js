@@ -86,9 +86,11 @@ exports.completeQuizSession = async (req, res) => {
 
 exports.getPlayableQuizItems = async (req, res) => {
   try {
+    const learningContentId = String(req.query.learningContentId || req.query.contentId || '').trim() || null;
     const items = await listPlayableQuizItems({
-      userId: req.user._id,
-      limit: req.query.limit
+      user: req.user,
+      limit: req.query.limit,
+      learningContentId
     });
     res.status(200).json(items);
   } catch (error) {

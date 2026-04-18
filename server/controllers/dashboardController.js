@@ -2,7 +2,8 @@ const Deck = require('../models/Deck');
 const Flashcard = require('../models/Flashcard');
 const LearningContent = require('../models/LearningContent');
 const StudySession = require('../models/StudySession');
-const { serializeContent, getRecommendedContent, CONTENT_VISIBILITY } = require('../services/contentService');
+const { serializeContent, CONTENT_VISIBILITY } = require('../services/contentService');
+const { getRecommendedContent } = require('../services/contentRecommendationService');
 const { getRecommendedPresets } = require('../services/presetService');
 
 const startOfToday = () => {

@@ -1,5 +1,5 @@
 import { startTransition, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
 import {
@@ -11,6 +11,7 @@ import {
   getDecks,
   getLearningContent,
   getLearningContentById,
+  getPlayableQuizItems,
   getRecommendedLearningContent,
   startContentStudySession,
   saveContentTranscriptSegments,
@@ -35,8 +36,9 @@ const initialContentForm = {
 };
 
 const CONTENT_LIBRARY_VIEWS = [
-  { id: 'community', label: 'Discover', description: 'Library and community content.' },
-  { id: 'my_uploads', label: 'My content', description: 'Your saved videos and notes.' }
+  { id: 'community', label: 'Discover', description: 'Community and global library.' },
+  { id: 'saved', label: 'Saved', description: 'Content you saved for later.' },
+  { id: 'my_uploads', label: 'My content', description: 'Your uploads and private sources.' }
 ];
 
 const formatSeconds = (value) => {
@@ -57,9 +59,12 @@ const formatStudyLabel = (value) =>
 
 const getQuickTags = (item) => [...(item.topicTags || []), ...(item.skillTags || [])].filter(Boolean).slice(0, 3);
 
+const VALID_CONTENT_VIEWS = new Set(['community', 'saved', 'my_uploads']);
+
 function ContentPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [contentItems, setContentItems] = useState([]);
   const [recommendedContent, setRecommendedContent] = useState([]);
   const [contentSummary, setContentSummary] = useState({
@@ -71,7 +76,10 @@ function ContentPage() {
   const [selectedContentId, setSelectedContentId] = useState('');
   const [selectedContent, setSelectedContent] = useState(null);
   const [contentForm, setContentForm] = useState(initialContentForm);
-  const [contentView, setContentView] = useState('community');
+  const [contentView, setContentView] = useState(() => {
+    const view = searchParams.get('view');
+    return view && VALID_CONTENT_VIEWS.has(view) ? view : 'community';
+  });
   const [contentQuery, setContentQuery] = useState('');
   const [decks, setDecks] = useState([]);
   const [message, setMessage] = useState('');
@@ -94,13 +102,53 @@ function ContentPage() {
   const [isLoadingContentStudy, setIsLoadingContentStudy] = useState(false);
   const [isStartingContentStudy, setIsStartingContentStudy] = useState(false);
   const [isCreatingWorkspaceCopy, setIsCreatingWorkspaceCopy] = useState(false);
+  const [quickQuizItems, setQuickQuizItems] = useState([]);
+  const [isLoadingQuickQuiz, setIsLoadingQuickQuiz] = useState(false);
 
-  const activeView = useMemo(() => CONTENT_LIBRARY_VIEWS.find((view) => view.id === contentView) || CONTENT_LIBRARY_VIEWS[0], [contentView]);
+  const contentIdParam = searchParams.get('contentId');
+
+  const tabCountForView = (viewId) => {
+    if (viewId === 'community') return contentSummary.communityCount;
+    if (viewId === 'saved') return contentSummary.savedCount;
+    if (viewId === 'my_uploads') return contentSummary.myUploadsCount;
+    return 0;
+  };
   const isUploadedType = contentForm.contentType === 'uploaded';
   const quickTags = useMemo(() => (selectedContent ? getQuickTags(selectedContent) : []), [selectedContent]);
   const studySummary = contentStudyPack?.summary || {};
+  const practiceListeningCount = studySummary.listeningReadySegmentCount || 0;
+  const practiceQuizCount = studySummary.quizCandidateCount || 0;
+  const practiceMatchesCount = studySummary.trustedLinkedSegmentCount || 0;
+  const practiceMetricsAllZero = practiceListeningCount === 0 && practiceQuizCount === 0 && practiceMatchesCount === 0;
   const canEditTranscript = Boolean(selectedContent?.isOwnedByCurrentUser);
   const canCreateWorkspaceCopy = Boolean(selectedContent?.canCreateWorkspaceCopy);
+
+  const quickQuizHref = useMemo(() => {
+    if (!selectedContent?._id || !quickQuizItems.length) {
+      return '';
+    }
+
+    const params = new URLSearchParams();
+    params.set('sourceMode', 'from_practice');
+    params.set('contentId', selectedContent._id);
+    params.set('contentTitle', selectedContent.title || '');
+    params.set('quizItemIds', quickQuizItems.map((q) => q.id).join(','));
+
+    return `/quiz?${params.toString()}`;
+  }, [selectedContent, quickQuizItems]);
+
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view && VALID_CONTENT_VIEWS.has(view)) {
+      setContentView(view);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (contentIdParam) {
+      setSelectedContentId(contentIdParam);
+    }
+  }, [contentIdParam]);
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -125,12 +173,18 @@ function ContentPage() {
             : { items: [], summary: { communityCount: 0, myUploadsCount: 0, savedCount: 0, recommendationReadyCount: 0 } };
         const recommendedData = recommendedResult.status === 'fulfilled' ? recommendedResult.value.data : { items: [] };
 
+        const items = contentData.items || [];
+        const ids = new Set(items.map((item) => item._id));
+
         startTransition(() => {
           setDecks(deckData);
-          setContentItems(contentData.items || []);
+          setContentItems(items);
           setRecommendedContent(recommendedData.items || []);
           setContentSummary(contentData.summary || {});
-          setSelectedContentId((current) => current || contentData.items?.[0]?._id || '');
+          setSelectedContentId((current) => {
+            if (current && ids.has(current)) return current;
+            return items[0]?._id || '';
+          });
         });
       } catch (error) {
         console.error('Failed to load content page:', error);
@@ -147,10 +201,17 @@ function ContentPage() {
       q: contentQuery
     });
 
+    const items = data.items || [];
+    const ids = new Set(items.map((item) => item._id));
+
     startTransition(() => {
-      setContentItems(data.items || []);
+      setContentItems(items);
       setContentSummary(data.summary || {});
-      setSelectedContentId((current) => preferredContentId || current || data.items?.[0]?._id || '');
+      setSelectedContentId((current) => {
+        if (preferredContentId && ids.has(preferredContentId)) return preferredContentId;
+        if (current && ids.has(current)) return current;
+        return items[0]?._id || '';
+      });
     });
   };
 
@@ -225,6 +286,38 @@ function ContentPage() {
 
   useEffect(() => {
     loadContentStudyPack(selectedContentId);
+  }, [selectedContentId]);
+
+  useEffect(() => {
+    if (!selectedContentId) {
+      setQuickQuizItems([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setIsLoadingQuickQuiz(true);
+        const { data } = await getPlayableQuizItems({ learningContentId: selectedContentId, limit: 12 });
+        if (!cancelled) {
+          setQuickQuizItems(data.items || []);
+        }
+      } catch (error) {
+        console.error('Failed to load quick quiz items:', error);
+        if (!cancelled) {
+          setQuickQuizItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingQuickQuiz(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedContentId]);
 
   useEffect(() => {
@@ -409,13 +502,13 @@ function ContentPage() {
           <div className="card elevated-panel content-library-panel content-library-panel-refined content-library-panel-light surface-quiet">
             <div className="section-stack-tight content-library-heading">
               <p className="eyebrow-label">1 · Browse</p>
-              <h3>{activeView.label}</h3>
-              <p className="muted-text">{activeView.description}</p>
+              <h3>Browse</h3>
+              <p className="muted-text">Library, saved, and personal content.</p>
             </div>
 
-            <div className="content-view-tabs" role="tablist" aria-label="Library scope">
+            <div className="content-view-tabs" role="tablist" aria-label="Content sources">
               {CONTENT_LIBRARY_VIEWS.map((view) => {
-                const count = view.id === 'community' ? contentSummary.communityCount : contentSummary.myUploadsCount;
+                const count = tabCountForView(view.id);
 
                 return (
                   <button
@@ -438,7 +531,7 @@ function ContentPage() {
               <input value={contentQuery} onChange={(event) => setContentQuery(event.target.value)} placeholder="Search by title, tag, or source" />
             </label>
 
-            {recommendedContent.length ? (
+            {contentView === 'community' && recommendedContent.length ? (
               <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
@@ -470,19 +563,33 @@ function ContentPage() {
             <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4 className="content-library-section-title">{contentView === 'community' ? 'Library' : 'Your content'}</h4>
+                    <h4 className="content-library-section-title">
+                      {contentView === 'community' ? 'Library' : contentView === 'saved' ? 'Saved' : 'Your content'}
+                    </h4>
                     <p className="muted-text content-library-section-hint">Open one item.</p>
                   </div>
                 </div>
               <div className="content-list content-list-refined">
                 {contentItems.length === 0 ? (
                   <div className="empty-state content-empty-state">
-                    <h4>{contentView === 'community' ? 'No content yet' : 'No uploads yet'}</h4>
-                    <p className="muted-text">
-                      {contentView === 'community'
-                        ? 'Community content will appear here as the library grows.'
-                        : 'Add your own source when you want to save notes and practice from it.'}
-                    </p>
+                    {contentView === 'saved' ? (
+                      <>
+                        <h4>No saved content yet</h4>
+                        <p className="muted-text">Save content to return to it later.</p>
+                        <button type="button" className="secondary-button content-empty-state-cta" onClick={() => setContentView('community')}>
+                          Go to Discover
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <h4>{contentView === 'community' ? 'No content yet' : 'No uploads yet'}</h4>
+                        <p className="muted-text">
+                          {contentView === 'community'
+                            ? 'Community content will appear here as the library grows.'
+                            : 'Add your own source when you want to save notes and practice from it.'}
+                        </p>
+                      </>
+                    )}
                   </div>
                 ) : (
                   contentItems.map((item) => (
@@ -680,31 +787,39 @@ function ContentPage() {
               </div>
 
               <div className="card elevated-panel content-study-focus-panel">
+                <p className="content-practice-context muted-text">
+                  From: <span className="content-practice-context-title">{selectedContent.title}</span>
+                </p>
+
                 <div className="content-practice-head">
                   <p className="eyebrow-label">3 · Practice</p>
-                  <h3>Practice</h3>
-                  <p className="muted-text">Start when items are ready. Refresh to update your practice set, then add flashcards if you want cards in a deck.</p>
+                  <h3>Practice this content</h3>
+                  <p className="muted-text">Start a quick session from this source.</p>
                 </div>
 
-                <div className="content-readiness-grid content-readiness-support">
-                  <div className="content-readiness-stat">
-                    <span className="content-readiness-value">{studySummary.listeningReadySegmentCount || 0}</span>
-                    <span className="muted-text">listening clips</span>
+                {practiceMetricsAllZero ? (
+                  <p className="muted-text content-practice-metrics-empty">No items generated yet.</p>
+                ) : (
+                  <div className="content-readiness-grid content-readiness-support content-practice-readiness">
+                    <div className="content-readiness-stat">
+                      <span className="content-readiness-value">{practiceListeningCount}</span>
+                      <span className="muted-text">listening clips</span>
+                    </div>
+                    <div className="content-readiness-stat">
+                      <span className="content-readiness-value">{practiceQuizCount}</span>
+                      <span className="muted-text">questions</span>
+                    </div>
+                    <div className="content-readiness-stat">
+                      <span className="content-readiness-value">{practiceMatchesCount}</span>
+                      <span className="muted-text">matches</span>
+                    </div>
                   </div>
-                  <div className="content-readiness-stat">
-                    <span className="content-readiness-value">{studySummary.quizCandidateCount || 0}</span>
-                    <span className="muted-text">questions</span>
-                  </div>
-                  <div className="content-readiness-stat">
-                    <span className="content-readiness-value">{studySummary.trustedLinkedSegmentCount || 0}</span>
-                    <span className="muted-text">matches</span>
-                  </div>
-                </div>
+                )}
 
                 <div className="content-practice-cta">
                   <button
                     type="button"
-                    className="content-practice-start"
+                    className="primary-button content-practice-start"
                     onClick={handleStartStudyFromContent}
                     disabled={isStartingContentStudy || !contentStudyPack?.items?.length}
                   >
@@ -712,7 +827,7 @@ function ContentPage() {
                   </button>
                 </div>
 
-                <div className="content-practice-tools">
+                <div className="content-practice-secondary-actions">
                   {!canEditTranscript && canCreateWorkspaceCopy ? (
                     <button type="button" className="secondary-button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
                       {isCreatingWorkspaceCopy ? 'Saving...' : 'Create editable copy'}
@@ -723,9 +838,9 @@ function ContentPage() {
                   </button>
                 </div>
 
-                <div className="content-practice-deck-row">
-                  <label>
-                    Deck
+                <div className="content-practice-deck-row content-practice-setup">
+                  <label className="content-practice-deck-label">
+                    Deck (optional)
                     <select value={targetDeckId} onChange={(event) => setTargetDeckId(event.target.value)}>
                       <option value="">No deck selected</option>
                       {decks.map((deck) => (
@@ -737,12 +852,26 @@ function ContentPage() {
                   </label>
                   <button
                     type="button"
-                    className="secondary-button"
+                    className="secondary-button content-practice-add-cards"
                     disabled={isGeneratingStudy || !selectedContent.studyGenerationReady}
                     onClick={handleGenerateStudyFromContent}
                   >
                     {isGeneratingStudy ? 'Adding...' : 'Add flashcards'}
                   </button>
+                </div>
+
+                <div className="content-practice-quick-check">
+                  <p className="eyebrow-label">Quick check</p>
+                  <p className="muted-text">Test what you just practiced.</p>
+                  {isLoadingQuickQuiz ? (
+                    <p className="muted-text">Loading...</p>
+                  ) : quickQuizHref ? (
+                    <Link to={quickQuizHref} className="secondary-button content-practice-quick-quiz-cta">
+                      Start quick quiz
+                    </Link>
+                  ) : (
+                    <p className="muted-text">No quiz items for this content yet.</p>
+                  )}
                 </div>
 
                 <DisclosurePanel

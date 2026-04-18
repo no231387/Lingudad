@@ -1,6 +1,5 @@
 const LearningContent = require('../models/LearningContent');
 const { SOURCE_PROVIDERS } = require('./sourceCatalogService');
-const { rankContentItems } = require('./learningEngineService');
 
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'youtu.be', 'm.youtube.com']);
 const CONTENT_TYPES = Object.freeze({
@@ -457,33 +456,6 @@ const getContentDetail = async ({ id, user }) => {
   return serializeContent(item, user?._id);
 };
 
-const getRecommendedContent = async ({ user, query = {} }) => {
-  const limit = Math.min(12, Math.max(1, Number(query.limit) || 4));
-  const items = await LearningContent.find({
-    language: buildLanguageMatch(query.language || user?.language || 'Japanese'),
-    visibility: { $in: [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL] },
-    recommendationEligible: true,
-    savedBy: { $ne: user._id }
-  })
-    .populate({ path: 'createdBy', select: 'username language level goals' })
-    .sort({ createdAt: -1 })
-    .limit(40);
-
-  const rankedItems = await rankContentItems({
-    user,
-    items,
-    serializeItem: (item) => serializeContent(item, user._id),
-    tieBreaker: (left, right) => normalizeText(left.title).localeCompare(normalizeText(right.title))
-  });
-
-  return {
-    items: rankedItems.slice(0, limit).map(({ serializedItem, recommendationDebug }) => ({
-      ...serializedItem,
-      recommendationDebug
-    }))
-  };
-};
-
 const createContent = async ({ body, user }) => {
   const payload = buildLearningContentPayload({ body, user });
   const lookup =
@@ -645,6 +617,5 @@ module.exports = {
   getAccessibleContentDocumentById,
   getContentDetail,
   getContentList,
-  getRecommendedContent,
   serializeContent
 };

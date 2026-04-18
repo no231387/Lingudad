@@ -4,9 +4,9 @@ const {
   getAccessibleContentDocumentById,
   getContentDetail,
   getContentList,
-  getRecommendedContent,
   serializeContent
 } = require('../services/contentService');
+const { getRecommendedContent } = require('../services/contentRecommendationService');
 const { getContentStudyPack, startContentStudySession } = require('../services/contentStudyService');
 const { createFlashcardsFromContent } = require('../services/studyGenerationService');
 const { getTranscriptSegmentsForContent, ingestTranscriptSegments } = require('../services/transcriptService');

@@ -74,12 +74,23 @@ function QuizSessionPage() {
 
   const sessionId = String(searchParams.get('sessionId') || '').trim();
   const requestedQuizItemIds = useMemo(() => parseQuizItemIds(searchParams), [searchParams]);
+  const sourceMode = String(searchParams.get('sourceMode') || '').trim();
+  const isFromPractice = sourceMode === 'from_practice';
+  const practiceContentId = String(searchParams.get('contentId') || '').trim();
+  const practiceContentTitle = useMemo(() => {
+    const raw = searchParams.get('contentTitle');
+    return raw ? String(raw) : '';
+  }, [searchParams]);
 
   const refreshHub = async ({ requestedIdsOverride } = {}) => {
     try {
       setIsLoadingHub(true);
+      const fromPractice = searchParams.get('sourceMode') === 'from_practice';
+      const contentIdForItems = String(searchParams.get('contentId') || '').trim();
+      const itemParams =
+        fromPractice && contentIdForItems ? { limit: 12, learningContentId: contentIdForItems } : { limit: 12 };
       const [{ data: itemData }, { data: sessionData }] = await Promise.all([
-        getPlayableQuizItems({ limit: 12 }),
+        getPlayableQuizItems(itemParams),
         getRecentQuizSessions({ limit: 8 })
       ]);
       const effectiveRequestedIds = Array.isArray(requestedIdsOverride) ? requestedIdsOverride : requestedQuizItemIds;
@@ -166,7 +177,11 @@ function QuizSessionPage() {
       });
       setSession(data);
       setCurrentIndex(0);
-      setSearchParams({ sessionId: data.id });
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('sessionId', data.id);
+        return next;
+      });
       if (!autoStart) {
         setMessage('Quiz session ready.');
       }
@@ -269,23 +284,44 @@ function QuizSessionPage() {
   const hubStartLabel =
     isStarting ? 'Starting...' : selectedQuizItemIds.length > 0 ? `Start quiz (${selectedQuizItemIds.length})` : 'Start quiz';
   const hasQuizItems = playableItems.length > 0;
-  const showQuizHubEmptyGuidance = hasHub && !isLoadingHub && !hasQuizItems;
+  const showQuizHubEmptyGuidance = hasHub && !isLoadingHub && !hasQuizItems && !isFromPractice;
+  const pageIntroEyebrow = isFromPractice ? 'Quick check' : 'Quiz';
+  const pageIntroTitle = isFromPractice ? 'Quick check' : 'Quiz mode';
+  const pageIntroDescription = session
+    ? 'Answer at your pace, then review the round when you are done.'
+    : isFromPractice
+      ? 'Test what you practiced.'
+      : 'Optionally pick questions below, then start a round.';
+  const pageIntroMeta =
+    isFromPractice && practiceContentTitle ? (
+      <p className="muted-text content-practice-context">
+        From: <span className="content-practice-context-title">{practiceContentTitle}</span>
+      </p>
+    ) : null;
+  const backToContentPath = practiceContentId ? `/content?contentId=${practiceContentId}` : '/content';
 
   return (
     <section className="page-section">
       <PageIntro
-        eyebrow="Quiz"
-        title="Quiz mode"
-        description={
-          session
-            ? 'Answer at your pace, then review the round when you are done.'
-            : 'Optionally pick questions below, then start a round.'
-        }
+        eyebrow={pageIntroEyebrow}
+        title={pageIntroTitle}
+        description={pageIntroDescription}
+        meta={pageIntroMeta}
         actions={
           session ? (
-            <button type="button" className="secondary-button" onClick={handleReturnToHub}>
-              Back to hub
-            </button>
+            isFromPractice && practiceContentId ? (
+              <Link to={backToContentPath} className="secondary-button">
+                Back to content
+              </Link>
+            ) : (
+              <button type="button" className="secondary-button" onClick={handleReturnToHub}>
+                Back to hub
+              </button>
+            )
+          ) : isFromPractice && practiceContentId ? (
+            <Link to={backToContentPath} className="secondary-button">
+              Back to content
+            </Link>
           ) : null
         }
       />
@@ -356,46 +392,64 @@ function QuizSessionPage() {
                 </div>
 
                 <div className="action-row">
-                  <button type="button" onClick={handleReturnToHub} disabled={isLoadingHub}>
-                    Back
-                  </button>
-                  <button type="button" className="secondary-button" onClick={() => handleStartQuiz({ quizItemIds: selectedQuizItemIds })} disabled={isStarting}>
-                    New quiz
-                  </button>
+                  {isFromPractice && practiceContentId ? (
+                    <>
+                      <Link to={backToContentPath} className="primary-button">
+                        Continue practice
+                      </Link>
+                      <Link to="/content" className="secondary-button">
+                        Back to content
+                      </Link>
+                      <button type="button" className="text-action" onClick={handleReturnToHub} disabled={isLoadingHub}>
+                        Quiz hub
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" onClick={handleReturnToHub} disabled={isLoadingHub}>
+                        Back
+                      </button>
+                      <button type="button" className="secondary-button" onClick={() => handleStartQuiz({ quizItemIds: selectedQuizItemIds })} disabled={isStarting}>
+                        New quiz
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
 
-            <aside className="dashboard-secondary">
-              <div className="card dashboard-section">
-                <div className="section-stack-tight">
-                  <p className="eyebrow-label">Session</p>
-                  <h3>Recent quizzes</h3>
-                  <p className="muted-text">Reopen past results for review.</p>
+            {!isFromPractice ? (
+              <aside className="dashboard-secondary">
+                <div className="card dashboard-section">
+                  <div className="section-stack-tight">
+                    <p className="eyebrow-label">Session</p>
+                    <h3>Recent quizzes</h3>
+                    <p className="muted-text">Reopen past results for review.</p>
+                  </div>
+                  <div className="dashboard-stack-list">
+                    {recentSessions.length ? (
+                      recentSessions.map((entry) => (
+                        <button key={entry.id} type="button" className="selection-row" onClick={() => handleOpenSession(entry.id)}>
+                          <div className="content-list-item-copy">
+                            <strong>{entry.quizTypeLabels.join(', ') || 'Quiz session'}</strong>
+                            <span className="muted-text">{entry.firstPrompt || 'Quiz review'}</span>
+                            <span className="muted-text">
+                              {entry.correctCount} correct | {entry.incorrectCount} incorrect | {entry.skippedCount} skipped
+                            </span>
+                          </div>
+                          <span className="mapped-column-tag">{entry.completedAt ? 'Finished' : 'Open'}</span>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="empty-state compact-empty-state">
+                        <h4>No quiz history yet</h4>
+                        <p className="muted-text">Completed quiz sessions will appear here.</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="dashboard-stack-list">
-                  {recentSessions.length ? (
-                    recentSessions.map((entry) => (
-                      <button key={entry.id} type="button" className="selection-row" onClick={() => handleOpenSession(entry.id)}>
-                        <div className="content-list-item-copy">
-                          <strong>{entry.quizTypeLabels.join(', ') || 'Quiz session'}</strong>
-                          <span className="muted-text">{entry.firstPrompt || 'Quiz review'}</span>
-                          <span className="muted-text">
-                            {entry.correctCount} correct | {entry.incorrectCount} incorrect | {entry.skippedCount} skipped
-                          </span>
-                        </div>
-                        <span className="mapped-column-tag">{entry.completedAt ? 'Finished' : 'Open'}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="empty-state compact-empty-state">
-                      <h4>No quiz history yet</h4>
-                      <p className="muted-text">Completed quiz sessions will appear here.</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </aside>
+              </aside>
+            ) : null}
           </div>
         ) : currentItem ? (
           <div className="dashboard-grid">
@@ -461,41 +515,56 @@ function QuizSessionPage() {
               </div>
             </div>
 
-            <aside className="dashboard-secondary">
-              <div className="card dashboard-section">
-                <div className="section-stack-tight">
-                  <p className="eyebrow-label">Progress</p>
-                  <h3>This session</h3>
-                  <p className="muted-text">One question at a time; review the full round when you finish.</p>
-                </div>
-                <div className="dashboard-stack-list">
-                  {session.items.map((item, index) => {
-                    const typeCopy = getQuizTypeCopy(item.quizType, item.quizTypeLabel);
-                    const status = item.result
-                      ? item.result.skipped
-                        ? 'Skipped'
-                        : item.result.isCorrect
-                          ? 'Correct'
-                          : 'Incorrect'
-                      : index === currentIndex
-                        ? 'Current'
-                        : 'Queued';
+            {!isFromPractice ? (
+              <aside className="dashboard-secondary">
+                <div className="card dashboard-section">
+                  <div className="section-stack-tight">
+                    <p className="eyebrow-label">Progress</p>
+                    <h3>This session</h3>
+                    <p className="muted-text">One question at a time; review the full round when you finish.</p>
+                  </div>
+                  <div className="dashboard-stack-list">
+                    {session.items.map((item, index) => {
+                      const typeCopy = getQuizTypeCopy(item.quizType, item.quizTypeLabel);
+                      const status = item.result
+                        ? item.result.skipped
+                          ? 'Skipped'
+                          : item.result.isCorrect
+                            ? 'Correct'
+                            : 'Incorrect'
+                        : index === currentIndex
+                          ? 'Current'
+                          : 'Queued';
 
-                    return (
-                      <div key={item.id} className="dashboard-list-row">
-                        <div>
-                          <strong>{index + 1}. {typeCopy.shortLabel}</strong>
-                          <p className="muted-text detail-support-copy">{item.prompt}</p>
+                      return (
+                        <div key={item.id} className="dashboard-list-row">
+                          <div>
+                            <strong>{index + 1}. {typeCopy.shortLabel}</strong>
+                            <p className="muted-text detail-support-copy">{item.prompt}</p>
+                          </div>
+                          <span className="mapped-column-tag">{status}</span>
                         </div>
-                        <span className="mapped-column-tag">{status}</span>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            </aside>
+              </aside>
+            ) : null}
           </div>
         ) : null
+      ) : isFromPractice && requestedQuizItemIds.length > 0 ? (
+        <div className="card form-card form-shell quiz-from-practice-launch">
+          <p className="muted-text">{isStarting || isLoadingHub ? 'Starting quick check...' : 'Preparing your quick check.'}</p>
+        </div>
+      ) : isFromPractice ? (
+        <div className="card form-card form-shell">
+          <p className="muted-text">No quiz items for this content yet.</p>
+          <div className="action-row">
+            <Link to={backToContentPath} className="secondary-button">
+              Back to content
+            </Link>
+          </div>
+        </div>
       ) : (
         <div className="dashboard-grid quiz-hub-page">
           {showQuizHubEmptyGuidance ? (

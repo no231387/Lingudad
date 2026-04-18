@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const QuizItem = require('../models/QuizItem');
 const QuizSession = require('../models/QuizSession');
+const { getAccessibleContentDocumentById } = require('./contentService');
 const { upsertProgress } = require('./userProgressService');
 
 const PLAYABLE_QUIZ_TYPES = new Set(['meaning_recall', 'cloze']);
@@ -403,8 +404,60 @@ const completeQuizSession = async ({ sessionId, userId }) => {
   return serializeQuizSession(session, quizItems);
 };
 
-const listPlayableQuizItems = async ({ userId, limit = 12 }) => {
+const listPlayableQuizItems = async ({ user, limit = 12, learningContentId = null }) => {
+  const userId = user?._id;
+  if (!userId) {
+    throw new Error('User is required.');
+  }
+
   const safeLimit = Math.min(24, Math.max(1, Number(limit || 12)));
+
+  if (learningContentId) {
+    const contentDoc = await getAccessibleContentDocumentById({ id: learningContentId, user });
+
+    if (!contentDoc) {
+      return {
+        items: [],
+        total: 0,
+        supportedQuizTypes: [...PLAYABLE_QUIZ_TYPES]
+      };
+    }
+
+    const vocabIds = (contentDoc.linkedVocabularyIds || []).map((id) => String(id));
+    const sentenceIds = (contentDoc.linkedSentenceIds || []).map((id) => String(id));
+
+    if (!vocabIds.length && !sentenceIds.length) {
+      return {
+        items: [],
+        total: 0,
+        supportedQuizTypes: [...PLAYABLE_QUIZ_TYPES]
+      };
+    }
+
+    const orClauses = [];
+    if (vocabIds.length) {
+      orClauses.push({ generatedFromModel: 'Vocabulary', generatedFromId: { $in: vocabIds } });
+    }
+    if (sentenceIds.length) {
+      orClauses.push({ generatedFromModel: 'Sentence', generatedFromId: { $in: sentenceIds } });
+    }
+
+    const quizItems = await QuizItem.find({
+      owner: userId,
+      $or: orClauses
+    })
+      .sort({ createdAt: -1 })
+      .limit(safeLimit * 4);
+
+    const playableItems = quizItems.filter(isPlayableQuizItem).slice(0, safeLimit);
+
+    return {
+      items: playableItems.map(serializeQuizSeedSummary),
+      total: playableItems.length,
+      supportedQuizTypes: [...PLAYABLE_QUIZ_TYPES]
+    };
+  }
+
   const quizItems = await QuizItem.find({ owner: userId }).sort({ createdAt: -1 }).limit(safeLimit * 3);
   const playableItems = quizItems.filter(isPlayableQuizItem).slice(0, safeLimit);
 
