@@ -1,5 +1,6 @@
 const {
   createContent,
+  createWorkspaceCopyFromContent,
   getAccessibleContentDocumentById,
   getContentDetail,
   getContentList,
@@ -69,6 +70,28 @@ exports.saveLearningContent = async (req, res) => {
     res.status(200).json({ message: 'Content saved.', content: serializeContent(item, req.user._id), contentId: item._id });
   } catch (error) {
     res.status(400).json({ message: 'Failed to save content.', error: error.message });
+  }
+};
+
+exports.createWorkspaceCopy = async (req, res) => {
+  try {
+    const result = await createWorkspaceCopyFromContent({
+      id: req.params.id,
+      user: req.user
+    });
+
+    if (!result) {
+      return res.status(404).json({ message: 'Learning content not found.' });
+    }
+
+    res.status(result.created ? 201 : 200).json({
+      message: result.created ? 'Study copy created in your workspace.' : 'Opened your existing study copy.',
+      content: result.item,
+      created: result.created,
+      reused: result.reused
+    });
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to create a workspace copy.', error: error.message });
   }
 };
 

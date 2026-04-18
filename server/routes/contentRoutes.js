@@ -7,6 +7,7 @@ const {
   getLearningContentById,
   getRecommendedLearningContent,
   startStudySessionFromContent,
+  createWorkspaceCopy,
   getTranscriptBackedStudyPack,
   saveContentTranscriptSegments,
   saveLearningContent,
@@ -21,6 +22,7 @@ router.use(protect);
 router.get('/recommended', getRecommendedLearningContent);
 router.route('/').get(getLearningContent).post(createLearningContent);
 router.get('/:id', getLearningContentById);
+router.post('/:id/workspace-copy', createWorkspaceCopy);
 router.get('/:id/study-pack', getTranscriptBackedStudyPack);
 router.post('/:id/start-study', startStudySessionFromContent);
 router.route('/:id/transcript-segments').get(getContentTranscriptSegments).post(saveContentTranscriptSegments);

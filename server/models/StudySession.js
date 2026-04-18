@@ -71,6 +71,11 @@ const studySessionSchema = new mongoose.Schema(
       min: 0,
       default: 0
     },
+    hardCount: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     easyCount: {
       type: Number,
       min: 0,

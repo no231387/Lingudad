@@ -1,6 +1,8 @@
 const StudySession = require('../models/StudySession');
 const Flashcard = require('../models/Flashcard');
 const Deck = require('../models/Deck');
+const mongoose = require('mongoose');
+const { upsertProgress } = require('../services/userProgressService');
 
 const SESSION_POPULATION = [
   { path: 'owner', select: 'username' },
@@ -11,6 +13,11 @@ const SESSION_POPULATION = [
 const buildAccessFilter = (user) => ({ owner: user._id });
 
 const ownsRecord = (record, user) => String(record.owner) === String(user._id);
+const REVIEW_RATINGS = new Set(['again', 'hard', 'good', 'easy']);
+const CONTENT_PROGRESS_TYPE_BY_MODEL = Object.freeze({
+  Vocabulary: 'vocab',
+  Sentence: 'sentence'
+});
 
 exports.getStudySessions = async (req, res) => {
   try {
@@ -31,6 +38,7 @@ exports.createStudySession = async (req, res) => {
     const itemCount = Number(req.body.itemCount || flashcardIds.length || sessionItems.length || 0);
     const reviewedCount = Number(req.body.reviewedCount || flashcardIds.length || sessionItems.length || 0);
     const againCount = Number(req.body.againCount || 0);
+    const hardCount = Number(req.body.hardCount || 0);
     const goodCount = Number(req.body.goodCount || 0);
     const easyCount = Number(req.body.easyCount || 0);
     const deckId = req.body.deck || null;
@@ -75,6 +83,7 @@ exports.createStudySession = async (req, res) => {
       sourceMetadata,
       reviewedCount,
       againCount,
+      hardCount,
       goodCount,
       easyCount,
       startedAt: req.body.startedAt || new Date(),
@@ -86,6 +95,72 @@ exports.createStudySession = async (req, res) => {
     res.status(201).json(session);
   } catch (error) {
     res.status(400).json({ message: 'Failed to save study session.', error: error.message });
+  }
+};
+
+exports.recordContentStudyFeedback = async (req, res) => {
+  try {
+    const rating = String(req.body.rating || '').trim().toLowerCase();
+    const durationMs = Number(req.body.durationMs || 0);
+    const eventType = String(req.body.eventType || '').trim().toLowerCase();
+    const trustedAnchor = req.body.trustedAnchor && typeof req.body.trustedAnchor === 'object' ? req.body.trustedAnchor : null;
+
+    if (eventType !== 'rating' && eventType !== 'skip') {
+      return res.status(400).json({ message: 'Content study feedback event must be rating or skip.' });
+    }
+
+    if (eventType === 'rating' && !REVIEW_RATINGS.has(rating)) {
+      return res.status(400).json({ message: 'Rating must be one of: again, hard, good, easy.' });
+    }
+
+    if (!trustedAnchor?.model || !trustedAnchor?.id) {
+      return res.status(200).json({
+        recorded: false,
+        ignored: true,
+        reason: 'no_trusted_anchor'
+      });
+    }
+
+    const itemType = CONTENT_PROGRESS_TYPE_BY_MODEL[String(trustedAnchor.model).trim()];
+
+    if (!itemType) {
+      return res.status(200).json({
+        recorded: false,
+        ignored: true,
+        reason: 'unsupported_trusted_anchor'
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(String(trustedAnchor.id))) {
+      return res.status(400).json({ message: 'Trusted anchor id is invalid.' });
+    }
+
+    const normalizedRating = eventType === 'skip' ? 'skip' : rating;
+    const isCorrect = normalizedRating === 'good' || normalizedRating === 'easy';
+    const isIncorrect = normalizedRating === 'again';
+
+    const progress = await upsertProgress({
+      userId: req.user._id,
+      itemType,
+      itemId: trustedAnchor.id,
+      correctDelta: isCorrect ? 1 : 0,
+      incorrectDelta: isIncorrect ? 1 : 0,
+      rating: normalizedRating,
+      durationMs
+    });
+
+    res.status(200).json({
+      recorded: true,
+      ignored: false,
+      target: {
+        model: trustedAnchor.model,
+        id: String(trustedAnchor.id),
+        itemType
+      },
+      progress
+    });
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to record content study feedback.', error: error.message });
   }
 };
 

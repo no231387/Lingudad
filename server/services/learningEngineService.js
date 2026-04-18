@@ -43,7 +43,7 @@ const GOAL_WEIGHT_RULES = Object.freeze({
 
 const ITEM_PROGRESS_TYPE = Object.freeze({
   vocabulary: 'vocab',
-  sentence: null,
+  sentence: 'sentence',
   flashcard: 'flashcard'
 });
 

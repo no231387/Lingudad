@@ -6,6 +6,7 @@ import {
   getFlashcards,
   getLearningPresets,
   getTags,
+  recordContentStudyFeedback,
   recordFlashcardStudyFeedback,
   reviewFlashcard,
   shapeStudySessionFlashcards
@@ -27,9 +28,29 @@ const buildSessionStats = () => ({
   startedAt: new Date().toISOString(),
   reviewedItemIds: [],
   againCount: 0,
+  hardCount: 0,
   goodCount: 0,
   easyCount: 0
 });
+
+const CONTENT_FEEDBACK_RATINGS = new Set(['again', 'hard', 'good', 'easy']);
+
+const buildTrustedAnchorPayload = (card) => {
+  const trustedAnchor = card?.trustedAnchor;
+
+  if (!trustedAnchor?.model || !trustedAnchor?.id) {
+    return null;
+  }
+
+  if (trustedAnchor.model !== 'Vocabulary' && trustedAnchor.model !== 'Sentence') {
+    return null;
+  }
+
+  return {
+    model: trustedAnchor.model,
+    id: trustedAnchor.id
+  };
+};
 
 const shuffleCards = (cards) => {
   const nextCards = [...cards];
@@ -162,7 +183,7 @@ function StudySessionPage() {
     const nextCards = cards.filter(Boolean);
 
     if (nextCards.length === 0) {
-      alert(sessionSource === 'content' ? 'No study items are ready for this content yet.' : 'No flashcards matched that study setup yet.');
+          alert(sessionSource === 'content' ? 'No practice items are ready for this content yet.' : 'No flashcards matched that study setup yet.');
       return;
     }
 
@@ -293,10 +314,20 @@ function StudySessionPage() {
 
     try {
       setIsSubmitting(true);
+      const durationMs = Math.max(0, Date.now() - cardSeenAtRef.current);
       if (activeSessionMeta?.sessionSource !== 'content') {
-        await reviewFlashcard(currentCard._id, rating, {
-          durationMs: Math.max(0, Date.now() - cardSeenAtRef.current)
-        });
+        await reviewFlashcard(currentCard._id, rating, { durationMs });
+      } else {
+        const trustedAnchor = buildTrustedAnchorPayload(currentCard);
+
+        if (CONTENT_FEEDBACK_RATINGS.has(rating) && trustedAnchor) {
+          await recordContentStudyFeedback({
+            eventType: 'rating',
+            rating,
+            durationMs,
+            trustedAnchor
+          });
+        }
       }
       const nextQueueState = updateStudyQueue(activeCards, currentIndex, rating);
       startTransition(() => {
@@ -306,6 +337,7 @@ function StudySessionPage() {
             ? previous.reviewedItemIds
             : [...previous.reviewedItemIds, currentCard._id || currentCard.id],
           againCount: previous.againCount + (rating === 'again' ? 1 : 0),
+          hardCount: previous.hardCount + (rating === 'hard' ? 1 : 0),
           goodCount: previous.goodCount + (rating === 'good' ? 1 : 0),
           easyCount: previous.easyCount + (rating === 'easy' ? 1 : 0)
         }));
@@ -328,6 +360,18 @@ function StudySessionPage() {
       }).catch((error) => {
         console.error('Failed to record skip feedback:', error);
       });
+    } else if (activeSessionMeta?.sessionSource === 'content') {
+      const trustedAnchor = buildTrustedAnchorPayload(currentCard);
+
+      if (trustedAnchor) {
+        recordContentStudyFeedback({
+          eventType: 'skip',
+          durationMs: Math.max(0, Date.now() - cardSeenAtRef.current),
+          trustedAnchor
+        }).catch((error) => {
+          console.error('Failed to record content skip feedback:', error);
+        });
+      }
     }
 
     setShowAnswer(false);
@@ -355,6 +399,7 @@ function StudySessionPage() {
           sessionItems: activeSessionMeta?.sessionSource === 'content' ? activeSessionMeta?.sourceMetadata?.sessionItems || [] : [],
           reviewedCount: sessionStats.reviewedItemIds.length,
           againCount: sessionStats.againCount,
+          hardCount: sessionStats.hardCount,
           goodCount: sessionStats.goodCount,
           easyCount: sessionStats.easyCount,
           deck: activeSessionMeta?.deckId || null,
@@ -413,7 +458,7 @@ function StudySessionPage() {
     startStudySession({
       cards: sessionItems,
       title: contentSession.title || `${contentSession.content?.title || 'Content'} Study`,
-      description: contentSession.description || 'Transcript-backed content study.',
+      description: contentSession.description || 'Practice built from saved lines and matched study items.',
       shapingStrategy: contentSession.shapingStrategy || 'content_pack_chronological',
       sessionSource: 'content',
       sourceContentId: contentSession.content?._id || '',
@@ -483,6 +528,10 @@ function StudySessionPage() {
               <p className="stat-number">{sessionStats.againCount}</p>
             </article>
             <article className="card stat-card">
+              <h3>Hard</h3>
+              <p className="stat-number">{sessionStats.hardCount}</p>
+            </article>
+            <article className="card stat-card">
               <h3>Good</h3>
               <p className="stat-number">{sessionStats.goodCount}</p>
             </article>
@@ -527,10 +576,10 @@ function StudySessionPage() {
               {isContentSession ? (
                 <>
                   <p className="study-card-meta">
-                    <strong>Mode:</strong> {String(currentCard.generationType || '').replaceAll('_', ' ')}
+                    <strong>Practice type:</strong> {String(currentCard.generationType || '').replaceAll('_', ' ')}
                   </p>
                   <p className="study-card-meta">
-                    <strong>Segment:</strong> {Math.max(0, Number(currentCard.provenance?.startTimeSeconds || 0)).toFixed(0)}s-
+                    <strong>Clip:</strong> {Math.max(0, Number(currentCard.provenance?.startTimeSeconds || 0)).toFixed(0)}s-
                     {Math.max(0, Number(currentCard.provenance?.endTimeSeconds || 0)).toFixed(0)}s
                   </p>
                 </>
@@ -546,14 +595,14 @@ function StudySessionPage() {
                 {isContentSession ? (
                   <>
                     <p className="study-card-answer">
-                      <strong>Self-check:</strong> {currentCard.correctAnswer || currentCard.transcriptText || 'Replay and self-check this segment.'}
+                      <strong>Check:</strong> {currentCard.correctAnswer || currentCard.transcriptText || 'Replay and check this clip.'}
                     </p>
                     <p className="study-card-meta">
                       <strong>Prompt:</strong> {currentCard.prompt}
                     </p>
                     {currentCard.transcriptText ? (
                       <p className="study-card-meta">
-                        <strong>Transcript:</strong> {currentCard.transcriptText}
+                        <strong>Line:</strong> {currentCard.transcriptText}
                       </p>
                     ) : null}
                     {currentCard.answers?.length > 1 ? (
@@ -563,7 +612,7 @@ function StudySessionPage() {
                     ) : null}
                     {currentCard.trustedAnchor ? (
                       <p className="study-card-meta">
-                        <strong>Trusted anchor:</strong>{' '}
+                        <strong>Matched item:</strong>{' '}
                         {currentCard.trustedAnchor.model === 'Vocabulary'
                           ? currentCard.trustedAnchor.term
                           : currentCard.trustedAnchor.text}
@@ -588,11 +637,14 @@ function StudySessionPage() {
                   </>
                 )}
                 <div className="study-review-panel">
-                  <p className="study-review-label">{isContentSession ? 'How did that study check feel?' : 'How did this review feel?'}</p>
+                  <p className="study-review-label">{isContentSession ? 'How did that check feel?' : 'How did this review feel?'}</p>
                   <p className="muted-text study-review-hint">Again keeps this card in the session and brings it back soon.</p>
                   <div className="study-review-actions">
                     <button type="button" onClick={() => handleRating('again')} disabled={isSubmitting} className="danger-button">
                       Again
+                    </button>
+                    <button type="button" onClick={() => handleRating('hard')} disabled={isSubmitting} className="secondary-button">
+                      Hard
                     </button>
                     <button type="button" onClick={() => handleRating('good')} disabled={isSubmitting}>
                       {isContentSession ? 'Good' : 'Good (+1 Proficiency)'}
@@ -608,11 +660,11 @@ function StudySessionPage() {
                 <p className="study-review-label">Focus on the card first</p>
                 <p className="muted-text study-review-hint">
                   {isContentSession
-                    ? 'Listen, recall, and reveal the self-check when you are ready.'
+                    ? 'Listen, recall, and reveal the check when you are ready.'
                     : 'Reveal the answer when you are ready to check recall.'}
                 </p>
                 <button type="button" onClick={() => setShowAnswer(true)} className="study-reveal-button">
-                  {isContentSession ? 'Reveal Self-Check' : 'Reveal Translation'}
+                  {isContentSession ? 'Reveal Check' : 'Reveal Translation'}
                 </button>
               </div>
             )}
@@ -643,7 +695,7 @@ function StudySessionPage() {
               <div>
                 <p className="eyebrow-label">Start</p>
                 <h3>Start here</h3>
-                <p className="muted-text">Lead with the strongest next session instead of making every option compete equally.</p>
+                <p className="muted-text">Start with the clearest next session instead of sorting through everything at once.</p>
               </div>
             </div>
 
@@ -673,7 +725,7 @@ function StudySessionPage() {
                     ? 'Items with weaker performance, lower proficiency, and higher review need are pulled forward first.'
                     : primaryPreset.description}
                 </p>
-                <p className="muted-text">Study adapts over time from your ratings, skips, and review history.</p>
+                <p className="muted-text">This gets better over time based on your ratings, skips, and review history.</p>
               </div>
               <div className="study-start-meta">
                 <p className="study-preset-count">{primaryPreset.cards.length} cards</p>

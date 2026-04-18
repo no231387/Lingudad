@@ -23,6 +23,7 @@ const CONTENT_DISCOVERY_SOURCES = Object.freeze({
 const normalizeText = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalizeText(value).toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const hasObjectIdValue = (value) => Boolean(value && String(value).trim());
 
 const normalizeLanguage = (value) => {
   const normalized = normalizeText(value);
@@ -300,9 +301,14 @@ const serializeContent = (item, userId) => {
     content.embedUrl || (content.contentType === CONTENT_TYPES.YOUTUBE && resolvedSourceId ? buildYouTubeUrls(resolvedSourceId).embedUrl : '');
   const isSaved = content.savedBy?.some((savedUserId) => String(savedUserId) === String(userId));
   const isOwnedByCurrentUser = Boolean(userId) && String(content.createdBy?._id || content.createdBy) === String(userId);
+  const workspaceSourceContentId = content.workspaceSourceContentId?._id || content.workspaceSourceContentId || null;
+  const workspaceSourceOwnerId = content.workspaceSourceOwnerId?._id || content.workspaceSourceOwnerId || null;
+  const isWorkspaceCopy = content.workspaceType === 'study_copy';
   const visibilityLabel =
     content.visibility === CONTENT_VISIBILITY.PRIVATE
-      ? 'Private upload'
+      ? isWorkspaceCopy
+        ? 'My study copy'
+        : 'Private upload'
       : content.visibility === CONTENT_VISIBILITY.GLOBAL
         ? 'Global starter content'
         : 'Community video';
@@ -319,12 +325,21 @@ const serializeContent = (item, userId) => {
     durationSeconds: content.durationSeconds || content.duration || null,
     duration: content.durationSeconds || content.duration || null,
     transcriptSource: content.transcriptSource || 'none',
+    workspaceType: content.workspaceType || 'base',
+    workspaceSourceContentId: workspaceSourceContentId ? String(workspaceSourceContentId) : '',
+    workspaceSourceVisibility: content.workspaceSourceVisibility || '',
+    workspaceSourceOwnerId: workspaceSourceOwnerId ? String(workspaceSourceOwnerId) : '',
+    isWorkspaceCopy,
     contentLinkCount:
       Number(content.linkedVocabularyIds?.length || 0) + Number(content.linkedSentenceIds?.length || 0),
     studyGenerationReady:
       Number(content.linkedVocabularyIds?.length || 0) + Number(content.linkedSentenceIds?.length || 0) > 0,
     isSaved,
     isOwnedByCurrentUser,
+    canCreateWorkspaceCopy:
+      !isOwnedByCurrentUser &&
+      content.visibility !== CONTENT_VISIBILITY.PRIVATE &&
+      !isWorkspaceCopy,
     visibilityLabel,
     visibilityBadge:
       content.visibility === CONTENT_VISIBILITY.PRIVATE ? 'Private' : content.visibility === CONTENT_VISIBILITY.GLOBAL ? 'Global' : 'Community'
@@ -497,6 +512,127 @@ const createContent = async ({ body, user }) => {
   return { item: serializeContent(item, user._id), created: true };
 };
 
+const buildWorkspaceCopyPayload = ({ sourceContent, user }) => ({
+  title: normalizeText(sourceContent.title),
+  description: normalizeText(sourceContent.description),
+  language: normalizeLanguage(sourceContent.language),
+  contentType: sourceContent.contentType,
+  sourceType: sourceContent.sourceType,
+  visibility: CONTENT_VISIBILITY.PRIVATE,
+  discoverySource: CONTENT_DISCOVERY_SOURCES.MANUAL,
+  recommendationEligible: false,
+  isSystemContent: false,
+  isCurated: false,
+  seedSource: '',
+  curationStatus: 'workspace_copy',
+  trustLevel: normalizeText(sourceContent.trustLevel) || 'content_source',
+  sourceProvider: normalizeText(sourceContent.sourceProvider),
+  sourceId: normalizeText(sourceContent.sourceId || sourceContent.externalId),
+  externalId: normalizeText(sourceContent.externalId || sourceContent.sourceId),
+  url: normalizeText(sourceContent.url || sourceContent.sourceUrl),
+  sourceUrl: normalizeText(sourceContent.sourceUrl || sourceContent.url),
+  embedUrl: normalizeText(sourceContent.embedUrl),
+  thumbnail: normalizeText(sourceContent.thumbnail || sourceContent.thumbnailUrl),
+  thumbnailUrl: normalizeText(sourceContent.thumbnailUrl || sourceContent.thumbnail),
+  duration: Number.isFinite(Number(sourceContent.durationSeconds || sourceContent.duration))
+    ? Number(sourceContent.durationSeconds || sourceContent.duration)
+    : null,
+  durationSeconds: Number.isFinite(Number(sourceContent.durationSeconds || sourceContent.duration))
+    ? Number(sourceContent.durationSeconds || sourceContent.duration)
+    : null,
+  topicTags: Array.isArray(sourceContent.topicTags) ? sourceContent.topicTags : [],
+  registerTags: Array.isArray(sourceContent.registerTags) ? sourceContent.registerTags : [],
+  skillTags: Array.isArray(sourceContent.skillTags) ? sourceContent.skillTags : [],
+  difficulty: normalizeText(sourceContent.difficulty),
+  transcriptStatus: 'none',
+  transcriptSource: 'none',
+  transcriptAvailable: false,
+  transcript: '',
+  linkedVocabularyIds: [],
+  linkedSentenceIds: [],
+  learningSource: true,
+  workspaceType: 'study_copy',
+  workspaceSourceContentId: sourceContent._id,
+  workspaceSourceVisibility: normalizeText(sourceContent.visibility),
+  workspaceSourceOwnerId: hasObjectIdValue(sourceContent.createdBy) ? sourceContent.createdBy : null,
+  metadata: {
+    ...(typeof sourceContent.metadata === 'object' && sourceContent.metadata !== null ? sourceContent.metadata : {}),
+    workspaceCopyOf: String(sourceContent._id),
+    workspaceCopyCreatedAt: new Date().toISOString()
+  },
+  provenance: {
+    ingestionMethod: 'workspace_copy',
+    sourceCapturedAt: sourceContent.provenance?.sourceCapturedAt || new Date(),
+    sourceSnapshotTitle: normalizeText(sourceContent.provenance?.sourceSnapshotTitle || sourceContent.title),
+    sourceSnapshotUrl: normalizeText(sourceContent.provenance?.sourceSnapshotUrl || sourceContent.sourceUrl || sourceContent.url),
+    notes: normalizeText(sourceContent.provenance?.notes)
+  },
+  createdBy: user._id,
+  savedBy: []
+});
+
+const createWorkspaceCopyFromContent = async ({ id, user }) => {
+  const sourceContent = await getAccessibleContentDocumentById({ id, user, populate: contentDetailPopulate });
+
+  if (!sourceContent) {
+    return null;
+  }
+
+  if (sourceContent.visibility === CONTENT_VISIBILITY.PRIVATE && String(sourceContent.createdBy) === String(user._id)) {
+    return {
+      item: serializeContent(sourceContent, user._id),
+      created: false,
+      reused: true
+    };
+  }
+
+  const existingWorkspaceCopy =
+    (await LearningContent.findOne({
+      visibility: CONTENT_VISIBILITY.PRIVATE,
+      createdBy: user._id,
+      workspaceSourceContentId: sourceContent._id
+    }).populate(contentDetailPopulate)) ||
+    (await LearningContent.findOne({
+      visibility: CONTENT_VISIBILITY.PRIVATE,
+      createdBy: user._id,
+      sourceProvider: normalizeText(sourceContent.sourceProvider),
+      $or: [
+        { sourceId: normalizeText(sourceContent.sourceId || sourceContent.externalId) },
+        { externalId: normalizeText(sourceContent.sourceId || sourceContent.externalId) }
+      ]
+    }).populate(contentDetailPopulate));
+
+  if (existingWorkspaceCopy) {
+    if (!existingWorkspaceCopy.workspaceSourceContentId) {
+      existingWorkspaceCopy.workspaceType = 'study_copy';
+      existingWorkspaceCopy.workspaceSourceContentId = sourceContent._id;
+      existingWorkspaceCopy.workspaceSourceVisibility = normalizeText(sourceContent.visibility);
+      existingWorkspaceCopy.workspaceSourceOwnerId = hasObjectIdValue(sourceContent.createdBy) ? sourceContent.createdBy : null;
+      existingWorkspaceCopy.metadata = {
+        ...(typeof existingWorkspaceCopy.metadata === 'object' && existingWorkspaceCopy.metadata !== null ? existingWorkspaceCopy.metadata : {}),
+        workspaceCopyOf: String(sourceContent._id)
+      };
+      await existingWorkspaceCopy.save();
+      await existingWorkspaceCopy.populate(contentDetailPopulate);
+    }
+
+    return {
+      item: serializeContent(existingWorkspaceCopy, user._id),
+      created: false,
+      reused: true
+    };
+  }
+
+  const workspaceCopy = await LearningContent.create(buildWorkspaceCopyPayload({ sourceContent, user }));
+  await workspaceCopy.populate(contentDetailPopulate);
+
+  return {
+    item: serializeContent(workspaceCopy, user._id),
+    created: true,
+    reused: false
+  };
+};
+
 module.exports = {
   CONTENT_DISCOVERY_SOURCES,
   CONTENT_TYPES,
@@ -504,6 +640,7 @@ module.exports = {
   buildLearningContentPayload,
   canUserAccessContent,
   createContent,
+  createWorkspaceCopyFromContent,
   extractYouTubeVideoId,
   getAccessibleContentDocumentById,
   getContentDetail,

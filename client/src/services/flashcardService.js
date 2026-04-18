@@ -83,6 +83,7 @@ export const createTag = (data) => api.post('/tags', data);
 export const getStudySessions = () => api.get('/study-sessions');
 export const createStudySession = (data) => api.post('/study-sessions', data);
 export const deleteStudySession = (id) => api.delete(`/study-sessions/${id}`);
+export const recordContentStudyFeedback = (data) => api.post('/study-sessions/content-feedback', data);
 export const clearDashboardOverviewCache = () => {
   dashboardOverviewCache = null;
   dashboardOverviewCacheAt = 0;
@@ -119,6 +120,7 @@ export const getContentTranscriptSegments = (id) => api.get(`/content/${id}/tran
 export const getContentStudyPack = (id) => api.get(`/content/${id}/study-pack`);
 export const startContentStudySession = (id) => api.post(`/content/${id}/start-study`);
 export const createLearningContent = (data) => api.post('/content', data);
+export const createWorkspaceCopyFromContent = (id) => api.post(`/content/${id}/workspace-copy`);
 export const saveContentTranscriptSegments = (id, data) => api.post(`/content/${id}/transcript-segments`, data);
 export const generateFlashcardsFromContent = (id, data = {}) => api.post(`/content/${id}/generate-flashcards`, data);
 export const saveLearningContent = (id) => api.post(`/content/${id}/save`);
@@ -149,3 +151,9 @@ export const reviewFlashcard = (id, rating, meta = {}) => api.patch(`/flashcards
 export const recordFlashcardStudyFeedback = (id, data) => api.patch(`/flashcards/${id}/study-feedback`, data);
 export const createQuizFromVocabulary = (id) => api.post(`/quizzes/from-vocabulary/${id}`);
 export const createQuizFromSentence = (id) => api.post(`/quizzes/from-sentence/${id}`);
+export const getPlayableQuizItems = (params = {}) => api.get('/quizzes/items', { params });
+export const getRecentQuizSessions = (params = {}) => api.get('/quizzes/sessions', { params });
+export const launchQuizSession = (data = {}) => api.post('/quizzes/launch', data);
+export const getQuizSession = (id) => api.get(`/quizzes/sessions/${id}`);
+export const submitQuizAnswer = (id, data) => api.post(`/quizzes/sessions/${id}/answers`, data);
+export const completeQuizSession = (id) => api.post(`/quizzes/sessions/${id}/complete`);

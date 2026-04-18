@@ -10,6 +10,8 @@
     "seed:presets": "node scripts/seedPresets.js",
     "seed:preset-content": "node scripts/seedPresetContent.js",
     "seed:starter-content": "node scripts/seedStarterContent.js",
+    "seed:system": "npm run seed:presets && npm run seed:starter-content",
+    "deploy:prepare": "npm run seed:system",
     "seed:test-presets": "node seed/seedTestPresetData.js",
     "test:sentence-cloze": "node scripts/verifySentenceCloze.js"
   },

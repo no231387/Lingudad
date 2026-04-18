@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
 import {
   createFlashcardFromVocabulary,
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 const TUTORIAL_STORAGE_KEY = 'lingua_vocabulary_tutorial_dismissed';
 
 function VocabularyPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [difficulty, setDifficulty] = useState('');
@@ -151,23 +153,23 @@ function VocabularyPage() {
       setMessage('');
       const { data } = await createQuizFromVocabulary(selectedItem._id);
       setLastQuiz(data);
-      setMessage('Linquiz created from vocabulary.');
+      setMessage('Quiz created from this word.');
     } catch (error) {
       console.error('Failed to create quiz from vocabulary:', error);
-      setMessage(error.response?.data?.message || 'Could not create a Linquiz from this vocabulary item.');
+      setMessage(error.response?.data?.message || 'Could not create a quiz from this word.');
     } finally {
       setIsCreatingQuiz(false);
     }
   };
 
   const primaryItems = hasSearched ? searchResults : recommended;
-  const primaryTitle = hasSearched ? 'Matching vocabulary' : 'Recommended for your preset';
+  const primaryTitle = hasSearched ? 'Matching words' : 'Picked for your study style';
   const primaryDescription = hasSearched
-    ? 'Search results become the main list so you can compare terms quickly.'
-    : selectedPreset?.description || 'Recommendations based on your current learning focus.';
-  const secondaryTitle = hasSearched ? 'Preset suggestions' : 'Search results';
+    ? 'Search results become the main list so you can compare words quickly.'
+    : selectedPreset?.description || 'Recommendations based on your current focus.';
+  const secondaryTitle = hasSearched ? 'More ideas' : 'Search results';
   const secondaryDescription = hasSearched
-    ? 'Keep preset recommendations nearby while you inspect a specific term.'
+    ? 'Keep a few suggested words nearby while you inspect a specific one.'
     : 'Search when you want a specific term, reading, or meaning.';
   const secondaryItems = hasSearched ? recommended.slice(0, 4) : searchResults.slice(0, 4);
   const shouldShowCompactTutorial = isTutorialDismissed && !isTutorialExpanded;
@@ -176,17 +178,17 @@ function VocabularyPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Vocabulary"
-        title="Source-backed vocabulary"
-        description="Find a term, inspect the details, and turn it into a study item with less visual noise."
+        title="Vocabulary"
+        description="Find a word, inspect the details, and turn it into something you can study."
       />
 
       {!shouldShowCompactTutorial ? (
         <div className="card elevated-panel tutorial-banner">
           <div className="tutorial-banner-header">
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Vocabulary flow</p>
+              <p className="eyebrow-label">How it works</p>
               <h3>Find, select, study</h3>
-              <p className="muted-text">Use the left tool to narrow the list, select one term in the center, then study from the detail panel.</p>
+              <p className="muted-text">Narrow the list, pick one word, then study it from the detail panel.</p>
             </div>
             <div className="tutorial-banner-actions">
               {isTutorialDismissed ? (
@@ -204,7 +206,7 @@ function VocabularyPage() {
             <div className="tutorial-steps tutorial-steps-compact">
               <div className="tutorial-step"><strong>1</strong><span>Pick a preset or search for a specific term.</span></div>
               <div className="tutorial-step"><strong>2</strong><span>Select one item from the main list.</span></div>
-              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or Linquiz from the detail panel.</span></div>
+              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or quiz from the detail panel.</span></div>
             </div>
           ) : null}
         </div>
@@ -214,7 +216,7 @@ function VocabularyPage() {
         <div className="card elevated-panel tutorial-banner tutorial-banner-minimal">
           <div className="tutorial-banner-header">
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Vocabulary flow</p>
+              <p className="eyebrow-label">How it works</p>
               <p className="muted-text">Find, select, study.</p>
             </div>
             <button type="button" className="secondary-button tutorial-dismiss" onClick={() => setIsTutorialExpanded(true)}>
@@ -231,13 +233,13 @@ function VocabularyPage() {
           <form className="card form-card form-shell elevated-panel learning-tool-panel" onSubmit={handleSearch}>
             <div className="section-stack-tight">
               <p className="eyebrow-label">Find</p>
-              <h3>Vocabulary tool</h3>
-              <p className="muted-text">Set the preset, enter a term if needed, and keep the search panel compact.</p>
+              <h3>Find words</h3>
+              <p className="muted-text">Pick a study style, search if needed, and keep this panel simple.</p>
             </div>
 
             <div className="learning-tool-block">
               <label>
-                Learning preset
+                Study style
                 <select
                   value={selectedPresetId}
                   onChange={(event) => {
@@ -277,7 +279,7 @@ function VocabularyPage() {
               </details>
 
               <button type="submit" disabled={isSearching}>
-                {isSearching ? 'Searching...' : 'Find vocabulary'}
+                {isSearching ? 'Searching...' : 'Find words'}
               </button>
             </div>
 
@@ -320,16 +322,16 @@ function VocabularyPage() {
             <div className="content-list">
               {!hasSearched && isLoadingRecommended ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>Loading recommendations</h4>
-                  <p className="muted-text">Fetching vocabulary matched to your preset and profile.</p>
+                  <h4>Loading suggestions</h4>
+                  <p className="muted-text">Finding words that fit your study style and profile.</p>
                 </div>
               ) : primaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>{hasSearched ? 'No matching vocabulary' : 'No vocabulary recommendations'}</h4>
+                  <h4>{hasSearched ? 'No matching words' : 'No word suggestions yet'}</h4>
                   <p className="muted-text">
                     {hasSearched
                       ? 'Try a broader term or remove filters to bring more matches into the main list.'
-                      : 'Source-backed vocabulary will appear here after entries are added for your language.'}
+                      : 'Words will appear here once Lingua has more material ready for your language.'}
                   </p>
                 </div>
               ) : (
@@ -348,7 +350,7 @@ function VocabularyPage() {
                         {item.recommendationDebug?.registerTags?.length ? item.recommendationDebug.registerTags.join(', ') : 'unspecified'}
                       </span>
                     </div>
-                    <span className="content-list-item-state">{hasSearched ? item.sourceProvider : item.difficulty || 'Source-backed'}</span>
+                    <span className="content-list-item-state">{hasSearched ? item.sourceProvider : item.difficulty || 'Word'}</span>
                   </button>
                 ))
               )}
@@ -366,10 +368,10 @@ function VocabularyPage() {
             <div className="content-list content-list-compact">
               {secondaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>{hasSearched ? 'No preset suggestions yet' : 'No search results yet'}</h4>
+                  <h4>{hasSearched ? 'No extra suggestions yet' : 'No search results yet'}</h4>
                   <p className="muted-text">
                     {hasSearched
-                      ? 'Recommendations will appear here when your preset returns source-backed vocabulary.'
+                      ? 'More suggestions will appear here when Lingua finds words that fit this study style.'
                       : 'Run a search when you want to inspect a specific term, reading, or meaning.'}
                   </p>
                 </div>
@@ -386,7 +388,7 @@ function VocabularyPage() {
                       <span className="list-secondary-line">{item.reading || 'No reading provided'}</span>
                       <span className="muted-text">{item.meanings?.slice(0, 1).join('; ') || 'No meaning available'}</span>
                     </div>
-                    <span className="content-list-item-state content-list-item-state-muted">{hasSearched ? item.difficulty || 'Source-backed' : item.sourceProvider}</span>
+                    <span className="content-list-item-state content-list-item-state-muted">{hasSearched ? item.difficulty || 'Word' : item.sourceProvider}</span>
                   </button>
                 ))
               )}
@@ -416,7 +418,7 @@ function VocabularyPage() {
                     <span className="study-action-card-copy">Review meaning and reading</span>
                   </button>
                   <button type="button" className="secondary-button study-action-card" onClick={handleCreateQuiz} disabled={isCreatingQuiz}>
-                    <span className="study-action-card-title">{isCreatingQuiz ? 'Creating...' : 'Create Linquiz'}</span>
+                    <span className="study-action-card-title">{isCreatingQuiz ? 'Creating...' : 'Create Quiz'}</span>
                     <span className="study-action-card-copy">Test recall from context</span>
                   </button>
                 </div>
@@ -483,7 +485,7 @@ function VocabularyPage() {
               ) : null}
 
               <details className="subsurface-panel compact-disclosure detail-section-card">
-                <summary>Source and provenance</summary>
+                <summary>Source details</summary>
                 <div className="compact-disclosure-content">
                   <p className="muted-text detail-support-copy">
                     {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
@@ -519,9 +521,14 @@ function VocabularyPage() {
               {lastQuiz ? (
                 <div className="study-preview-card">
                   <div className="section-stack-tight">
-                    <h4>Latest Linquiz</h4>
+                    <h4>Latest quiz</h4>
                     <p>{lastQuiz.prompt}</p>
                     <p className="muted-text">Answer: {lastQuiz.correctAnswer}</p>
+                    <div className="action-row">
+                      <button type="button" className="secondary-button" onClick={() => navigate(`/quiz?quizItemId=${lastQuiz._id}`)}>
+                        Play this quiz
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -529,7 +536,7 @@ function VocabularyPage() {
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select vocabulary</h4>
-              <p className="muted-text">Choose a recommended or matching entry to inspect it and create a study item.</p>
+              <p className="muted-text">Choose a suggested or matching word to inspect it and create something to study.</p>
             </div>
           )}
         </div>

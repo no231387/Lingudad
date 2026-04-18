@@ -45,10 +45,13 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
       <PageIntro
         eyebrow="Home"
         title="Dashboard"
-        description="Pick up where you left off, see today’s momentum, and open the next useful resource quickly."
+        description="Pick up where you left off, see today's progress, and jump into the next useful thing."
         actions={
           <>
-            <Link to="/study">Start study session</Link>
+            <Link to="/study">Start studying</Link>
+            <Link to="/quiz" className="secondary-button">
+              Open quizzes
+            </Link>
             <Link to="/content" className="secondary-button">
               Open content
             </Link>
@@ -63,7 +66,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
               <div>
                 <p className="eyebrow-label">Continue</p>
                 <h3>Continue learning</h3>
-                <p className="muted-text">Recent study and saved content stay together so the next move is obvious.</p>
+                <p className="muted-text">Your recent study and saved picks stay together so the next step is easy.</p>
               </div>
             </div>
 
@@ -71,7 +74,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
               <div className="subsurface-panel">
                 <div className="section-stack-tight">
                   <h4>Recent sessions</h4>
-                  <p className="muted-text">Open Study to continue review.</p>
+                  <p className="muted-text">Jump back into review from here.</p>
                 </div>
                 {hasSessions ? (
                   <div className="dashboard-stack-list">
@@ -88,7 +91,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                 ) : (
                   <div className="empty-state compact-empty-state">
                     <h4>No study sessions</h4>
-                    <p className="muted-text">Sessions appear here after you complete a review round.</p>
+                    <p className="muted-text">Your recent sessions will show up here after you finish a round.</p>
                   </div>
                 )}
               </div>
@@ -96,7 +99,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
               <div className="subsurface-panel">
                 <div className="section-stack-tight">
                   <h4>Saved content</h4>
-                  <p className="muted-text">Open saved media or add a new source.</p>
+                  <p className="muted-text">Keep favorite videos and sources close by.</p>
                 </div>
                 {hasSavedContent ? (
                   <div className="dashboard-stack-list">
@@ -115,7 +118,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                 ) : (
                   <div className="empty-state compact-empty-state">
                     <h4>No saved content</h4>
-                    <p className="muted-text">Save content on the Content page to keep it here.</p>
+                    <p className="muted-text">Save something from the Content page and it will appear here.</p>
                   </div>
                 )}
               </div>
@@ -126,7 +129,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="section-header">
               <div>
                 <h3>Recommended content</h3>
-                <p className="muted-text">Based on your goals, level, register preferences, and trusted-content readiness.</p>
+                <p className="muted-text">Picked to fit your goals, level, and the kind of language you want to practice.</p>
               </div>
               <Link className="button-link secondary-button" to="/content">
                 View content
@@ -145,7 +148,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                       <p className="muted-text">{item.difficulty || 'Open level'} • {item.visibilityBadge || item.visibilityLabel}</p>
                     </div>
                     <Link className="button-link" to="/content">
-                      Open content
+                      Open
                     </Link>
                   </article>
                 ))}
@@ -153,7 +156,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             ) : (
               <div className="empty-state">
                 <h4>No recommended content</h4>
-                <p className="muted-text">Add community YouTube content for your target language to populate this section.</p>
+                <p className="muted-text">As you save and study more, Lingua will start surfacing better picks here.</p>
               </div>
             )}
           </section>
@@ -165,7 +168,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
               <p className="eyebrow-label">Daily Practice</p>
               <h3>{overview.dailyPractice.reviewedToday} reviewed today</h3>
               <p className="muted-text">
-                Goal: {overview.dailyPractice.dailyGoal || 0} | Remaining: {overview.dailyPractice.remaining}
+                Goal: {overview.dailyPractice.dailyGoal || 0} | Left today: {overview.dailyPractice.remaining}
               </p>
             </div>
 
@@ -192,7 +195,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="section-header">
               <div>
                 <h3>Suggested presets</h3>
-                <p className="muted-text">Guided by your onboarding profile and current study direction.</p>
+                <p className="muted-text">Study styles that fit the way you want to learn right now.</p>
               </div>
               <Link className="button-link secondary-button" to="/study">
                 Use in study
@@ -216,7 +219,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             ) : (
               <div className="empty-state">
                 <h4>No preset suggestions yet</h4>
-                <p className="muted-text">Finish onboarding so Lingua can suggest more relevant preset lanes.</p>
+                <p className="muted-text">Finish your profile so Lingua can suggest better study styles.</p>
               </div>
             )}
           </section>
@@ -225,7 +228,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
             <div className="section-header">
               <div>
                 <h3>Your Decks</h3>
-                <p className="muted-text">Recent decks and current card counts.</p>
+                <p className="muted-text">Your recent decks and how many cards each one has.</p>
               </div>
               <Link className="button-link secondary-button" to="/decks">
                 Open decks

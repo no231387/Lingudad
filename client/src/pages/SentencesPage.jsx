@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
 import {
   createFlashcardFromSentence,
@@ -12,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 const TUTORIAL_STORAGE_KEY = 'lingua_sentences_tutorial_dismissed';
 
 function SentencesPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [difficulty, setDifficulty] = useState('');
@@ -151,23 +153,23 @@ function SentencesPage() {
       setMessage('');
       const { data } = await createQuizFromSentence(selectedItem._id);
       setLastQuiz(data);
-      setMessage('Linquiz created from sentence.');
+      setMessage('Quiz created from this sentence.');
     } catch (error) {
       console.error('Failed to create quiz from sentence:', error);
-      setMessage(error.response?.data?.message || 'Could not create a Linquiz from this sentence.');
+      setMessage(error.response?.data?.message || 'Could not create a quiz from this sentence.');
     } finally {
       setIsCreatingQuiz(false);
     }
   };
 
   const primaryItems = hasSearched ? searchResults : recommended;
-  const primaryTitle = hasSearched ? 'Matching sentences' : 'Recommended for your preset';
+  const primaryTitle = hasSearched ? 'Matching sentences' : 'Picked for your study style';
   const primaryDescription = hasSearched
     ? 'Search results become the main list so you can scan, select, and study faster.'
-    : selectedPreset?.description || 'Recommendations based on your current learning focus.';
-  const secondaryTitle = hasSearched ? 'Preset suggestions' : 'Search results';
+    : selectedPreset?.description || 'Recommendations based on your current focus.';
+  const secondaryTitle = hasSearched ? 'More ideas' : 'Search results';
   const secondaryDescription = hasSearched
-    ? 'Keep preset-based suggestions nearby while you inspect search matches.'
+    ? 'Keep a few suggested sentences nearby while you inspect search matches.'
     : 'Search when you want an exact phrase or translation.';
   const secondaryItems = hasSearched ? recommended.slice(0, 4) : searchResults.slice(0, 4);
   const shouldShowCompactTutorial = isTutorialDismissed && !isTutorialExpanded;
@@ -176,17 +178,17 @@ function SentencesPage() {
     <section className="page-section">
       <PageIntro
         eyebrow="Sentences"
-        title="Source-backed sentences"
-        description="Find a sentence, inspect the details, and turn it into a study item without losing focus."
+        title="Sentences"
+        description="Find a sentence, inspect the details, and turn it into something you can study."
       />
 
       {!shouldShowCompactTutorial ? (
         <div className="card elevated-panel tutorial-banner">
           <div className="tutorial-banner-header">
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Sentence flow</p>
+              <p className="eyebrow-label">How it works</p>
               <h3>Find, select, study</h3>
-              <p className="muted-text">Use the left tool to narrow the list, choose one sentence in the center, then study from the detail panel.</p>
+              <p className="muted-text">Narrow the list, pick one sentence, then study it from the detail panel.</p>
             </div>
             <div className="tutorial-banner-actions">
               {isTutorialDismissed ? (
@@ -204,7 +206,7 @@ function SentencesPage() {
             <div className="tutorial-steps tutorial-steps-compact">
               <div className="tutorial-step"><strong>1</strong><span>Pick a preset or run a focused search.</span></div>
               <div className="tutorial-step"><strong>2</strong><span>Select one sentence from the main list.</span></div>
-              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or Linquiz from the detail panel.</span></div>
+              <div className="tutorial-step"><strong>3</strong><span>Create a flashcard or quiz from the detail panel.</span></div>
             </div>
           ) : null}
         </div>
@@ -214,7 +216,7 @@ function SentencesPage() {
         <div className="card elevated-panel tutorial-banner tutorial-banner-minimal">
           <div className="tutorial-banner-header">
             <div className="section-stack-tight">
-              <p className="eyebrow-label">Sentence flow</p>
+              <p className="eyebrow-label">How it works</p>
               <p className="muted-text">Find, select, study.</p>
             </div>
             <button type="button" className="secondary-button tutorial-dismiss" onClick={() => setIsTutorialExpanded(true)}>
@@ -231,13 +233,13 @@ function SentencesPage() {
           <form className="card form-card form-shell elevated-panel learning-tool-panel" onSubmit={handleSearch}>
             <div className="section-stack-tight">
               <p className="eyebrow-label">Find</p>
-              <h3>Sentence tool</h3>
-              <p className="muted-text">Set the preset, enter a phrase if needed, and keep the search panel compact.</p>
+              <h3>Find sentences</h3>
+              <p className="muted-text">Pick a study style, search if needed, and keep this panel simple.</p>
             </div>
 
             <div className="learning-tool-block">
               <label>
-                Learning preset
+                Study style
                 <select
                   value={selectedPresetId}
                   onChange={(event) => {
@@ -320,16 +322,16 @@ function SentencesPage() {
             <div className="content-list">
               {!hasSearched && isLoadingRecommended ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>Loading recommendations</h4>
-                  <p className="muted-text">Fetching sentence examples matched to your preset and profile.</p>
+                  <h4>Loading suggestions</h4>
+                  <p className="muted-text">Finding sentences that fit your study style and profile.</p>
                 </div>
               ) : primaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>{hasSearched ? 'No matching sentences' : 'No sentence recommendations'}</h4>
+                  <h4>{hasSearched ? 'No matching sentences' : 'No sentence suggestions yet'}</h4>
                   <p className="muted-text">
                     {hasSearched
                       ? 'Try a broader phrase or remove filters to bring more matches into the main list.'
-                      : 'Source-backed sentences will appear here after entries are added for your language.'}
+                      : 'Sentences will appear here once Lingua has more material ready for your language.'}
                   </p>
                 </div>
               ) : (
@@ -365,10 +367,10 @@ function SentencesPage() {
             <div className="content-list content-list-compact">
               {secondaryItems.length === 0 ? (
                 <div className="empty-state compact-empty-state">
-                  <h4>{hasSearched ? 'No preset suggestions yet' : 'No search results yet'}</h4>
+                  <h4>{hasSearched ? 'No extra suggestions yet' : 'No search results yet'}</h4>
                   <p className="muted-text">
                     {hasSearched
-                      ? 'Recommendations will appear here when your preset returns source-backed sentences.'
+                      ? 'More suggestions will appear here when Lingua finds sentences that fit this study style.'
                       : 'Run a search when you want to inspect a specific phrase or translation.'}
                   </p>
                 </div>
@@ -420,7 +422,7 @@ function SentencesPage() {
                     onClick={handleCreateQuiz}
                     disabled={isCreatingQuiz}
                   >
-                    <span className="study-action-card-title">{isCreatingQuiz ? 'Creating...' : 'Create Linquiz (Fill-in)'}</span>
+                    <span className="study-action-card-title">{isCreatingQuiz ? 'Creating...' : 'Create Quiz (Fill-in)'}</span>
                     <span className="study-action-card-copy">Test recall from context</span>
                   </button>
                 </div>
@@ -489,7 +491,7 @@ function SentencesPage() {
               ) : null}
 
               <details className="subsurface-panel compact-disclosure detail-section-card">
-                <summary>Source and provenance</summary>
+                <summary>Source details</summary>
                 <div className="compact-disclosure-content">
                   <p className="muted-text detail-support-copy">
                     {selectedItem.sourceProvider} | {selectedItem.sourceType} | {selectedItem.sourceId}
@@ -525,9 +527,14 @@ function SentencesPage() {
               {lastQuiz ? (
                 <div className="study-preview-card">
                   <div className="section-stack-tight">
-                    <h4>Latest Linquiz</h4>
+                    <h4>Latest quiz</h4>
                     <p>{lastQuiz.prompt}</p>
                     <p className="muted-text">Answer: {lastQuiz.correctAnswer}</p>
+                    <div className="action-row">
+                      <button type="button" className="secondary-button" onClick={() => navigate(`/quiz?quizItemId=${lastQuiz._id}`)}>
+                        Play this quiz
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -535,7 +542,7 @@ function SentencesPage() {
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select a sentence</h4>
-              <p className="muted-text">Choose a recommended or matching sentence to inspect it and create a study item.</p>
+              <p className="muted-text">Choose a suggested or matching sentence to inspect it and create something to study.</p>
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ const userProgressSchema = new mongoose.Schema(
     },
     itemType: {
       type: String,
-      enum: ['flashcard', 'vocab', 'content'],
+      enum: ['flashcard', 'vocab', 'sentence', 'content'],
       required: [true, 'Item type is required']
     },
     itemId: {

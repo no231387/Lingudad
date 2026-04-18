@@ -4,6 +4,7 @@ import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
 import {
   createLearningContent,
+  createWorkspaceCopyFromContent,
   generateFlashcardsFromContent,
   getContentStudyPack,
   getContentTranscriptSegments,
@@ -35,7 +36,7 @@ const initialContentForm = {
 
 const CONTENT_LIBRARY_VIEWS = [
   { id: 'community', label: 'Discover', description: 'Starter and community content.' },
-  { id: 'my_uploads', label: 'My uploads', description: 'Private media and transcript workspaces.' }
+  { id: 'my_uploads', label: 'My content', description: 'Your saved videos and personal notes.' }
 ];
 
 const formatSeconds = (value) => {
@@ -92,16 +93,19 @@ function ContentPage() {
   const [isLoadingTranscript, setIsLoadingTranscript] = useState(false);
   const [isLoadingContentStudy, setIsLoadingContentStudy] = useState(false);
   const [isStartingContentStudy, setIsStartingContentStudy] = useState(false);
+  const [isCreatingWorkspaceCopy, setIsCreatingWorkspaceCopy] = useState(false);
 
   const activeView = useMemo(() => CONTENT_LIBRARY_VIEWS.find((view) => view.id === contentView) || CONTENT_LIBRARY_VIEWS[0], [contentView]);
   const isUploadedType = contentForm.contentType === 'uploaded';
   const quickTags = useMemo(() => (selectedContent ? getQuickTags(selectedContent) : []), [selectedContent]);
   const studySummary = contentStudyPack?.summary || {};
+  const canEditTranscript = Boolean(selectedContent?.isOwnedByCurrentUser);
+  const canCreateWorkspaceCopy = Boolean(selectedContent?.canCreateWorkspaceCopy);
 
   useEffect(() => {
     const loadPageData = async () => {
       try {
-        const [{ data: deckData }, { data: contentData }, { data: recommendedData }] = await Promise.all([
+        const [deckResult, contentResult, recommendedResult] = await Promise.allSettled([
           getDecks(),
           getLearningContent({
             language: user?.language || 'Japanese',
@@ -113,6 +117,13 @@ function ContentPage() {
             limit: 4
           })
         ]);
+
+        const deckData = deckResult.status === 'fulfilled' ? deckResult.value.data : [];
+        const contentData =
+          contentResult.status === 'fulfilled'
+            ? contentResult.value.data
+            : { items: [], summary: { communityCount: 0, myUploadsCount: 0, savedCount: 0, recommendationReadyCount: 0 } };
+        const recommendedData = recommendedResult.status === 'fulfilled' ? recommendedResult.value.data : { items: [] };
 
         startTransition(() => {
           setDecks(deckData);
@@ -129,10 +140,10 @@ function ContentPage() {
     loadPageData();
   }, [contentQuery, contentView, user?.language]);
 
-  const refreshContent = async (preferredContentId = '') => {
+  const refreshContent = async (preferredContentId = '', scopeOverride = '') => {
     const { data } = await getLearningContent({
       language: user?.language || 'Japanese',
-      scope: contentView,
+      scope: scopeOverride || contentView,
       q: contentQuery
     });
 
@@ -290,6 +301,31 @@ function ContentPage() {
     }
   };
 
+  const handleCreateWorkspaceCopy = async () => {
+    if (!selectedContent) {
+      return;
+    }
+
+    try {
+      setIsCreatingWorkspaceCopy(true);
+      setMessage('');
+      const { data } = await createWorkspaceCopyFromContent(selectedContent._id);
+      const workspaceContent = data.content;
+
+      if (contentView !== 'my_uploads') {
+        setContentView('my_uploads');
+      }
+
+      setSelectedContentId(workspaceContent._id);
+      await refreshContent(workspaceContent._id, 'my_uploads');
+      setMessage(data.message || 'Your saved copy is ready.');
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Could not save your own copy of this content.');
+    } finally {
+      setIsCreatingWorkspaceCopy(false);
+    }
+  };
+
   const handleStartStudyFromContent = async () => {
     if (!selectedContent) {
       return;
@@ -305,7 +341,8 @@ function ContentPage() {
         }
       });
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Could not start study from this content.');
+      const sessionMessage = error.response?.data?.session?.message;
+      setMessage(sessionMessage || error.response?.data?.message || 'Could not start study from this content.');
     } finally {
       setIsStartingContentStudy(false);
     }
@@ -330,7 +367,7 @@ function ContentPage() {
       const { data: refreshedContent } = await getLearningContentById(selectedContent._id);
       setSelectedContent(refreshedContent);
       await loadContentStudyPack(selectedContent._id);
-      setMessage('Transcript segments saved and linked where trusted matches were found.');
+      setMessage('Lines saved and matched where Lingua found solid study links.');
     } catch (error) {
       setMessage(error.response?.data?.error || error.response?.data?.message || 'Could not save transcript segments.');
     } finally {
@@ -343,13 +380,13 @@ function ContentPage() {
       <PageIntro
         eyebrow="Content"
         title="Watch, save, and study"
-        description="Keep the player and next study move front and center."
+        description="Watch, save, and turn useful moments into practice."
         className="content-page-intro"
         meta={
           <div className="content-page-meta">
             <span className="mapped-column-tag">{contentSummary.communityCount || 0} in library</span>
             <span className="mapped-column-tag">{contentSummary.savedCount || 0} saved</span>
-            <span className="mapped-column-tag">{contentSummary.recommendationReadyCount || 0} recommendation-ready</span>
+            <span className="mapped-column-tag">{contentSummary.recommendationReadyCount || 0} ready to practice</span>
           </div>
         }
       />
@@ -395,8 +432,8 @@ function ContentPage() {
               <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4>Recommended</h4>
-                    <p className="muted-text">A short next-watch list.</p>
+                    <h4>Picked for you</h4>
+                    <p className="muted-text">A short list to try next.</p>
                   </div>
                 </div>
                 <div className="content-recommendation-list">
@@ -423,7 +460,7 @@ function ContentPage() {
             <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4>{contentView === 'community' ? 'Library' : 'Your uploads'}</h4>
+                    <h4>{contentView === 'community' ? 'Library' : 'Your content'}</h4>
                     <p className="muted-text">Select one item to open.</p>
                   </div>
                 </div>
@@ -434,7 +471,7 @@ function ContentPage() {
                     <p className="muted-text">
                       {contentView === 'community'
                         ? 'Starter and community videos will appear here as the library grows.'
-                        : 'Add a private source when you want your own transcript workspace.'}
+                        : 'Add your own source when you want to save notes and practice from it.'}
                     </p>
                   </div>
                 ) : (
@@ -572,6 +609,7 @@ function ContentPage() {
                     </p>
                     <div className="mapped-column-tags">
                       <span className="mapped-column-tag">{selectedContent.visibilityLabel}</span>
+                      {selectedContent.isWorkspaceCopy ? <span className="mapped-column-tag">Your copy</span> : null}
                       {quickTags.map((tag) => (
                         <span key={tag} className="mapped-column-tag">
                           {tag.replaceAll('_', ' ')}
@@ -581,11 +619,18 @@ function ContentPage() {
                   </div>
                   <div className="content-detail-actions">
                     {selectedContent.visibility !== 'private' ? (
-                      <button type="button" className="secondary-button" onClick={() => handleToggleSave(selectedContent)}>
-                        {selectedContent.isSaved ? 'Saved' : 'Save content'}
-                      </button>
+                      <>
+                        <button type="button" className="secondary-button" onClick={() => handleToggleSave(selectedContent)}>
+                          {selectedContent.isSaved ? 'Saved' : 'Save content'}
+                        </button>
+                        {canCreateWorkspaceCopy ? (
+                          <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                            {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+                          </button>
+                        ) : null}
+                      </>
                     ) : (
-                      <span className="mapped-column-tag">Private only</span>
+                      <span className="mapped-column-tag">{selectedContent.isWorkspaceCopy ? 'You can edit this' : 'Only you can see this'}</span>
                     )}
                   </div>
                 </div>
@@ -610,22 +655,22 @@ function ContentPage() {
               <div className="card elevated-panel content-study-focus-panel">
                 <div className="section-stack-tight">
                   <p className="eyebrow-label">Study</p>
-                  <h3>Study this content</h3>
-                  <p className="muted-text">Refresh the study pack, then generate trusted flashcards when links are ready.</p>
+                  <h3>Practice from this content</h3>
+                  <p className="muted-text">Refresh your practice set, then make flashcards once matches are ready.</p>
                 </div>
 
                 <div className="content-readiness-grid">
                   <div className="subsurface-panel content-readiness-card">
                     <span className="content-readiness-value">{studySummary.listeningReadySegmentCount || 0}</span>
-                    <span className="muted-text">listening-ready</span>
+                    <span className="muted-text">listening clips</span>
                   </div>
                   <div className="subsurface-panel content-readiness-card">
                     <span className="content-readiness-value">{studySummary.quizCandidateCount || 0}</span>
-                    <span className="muted-text">quiz seeds</span>
+                    <span className="muted-text">quiz prompts</span>
                   </div>
                   <div className="subsurface-panel content-readiness-card">
                     <span className="content-readiness-value">{studySummary.trustedLinkedSegmentCount || 0}</span>
-                    <span className="muted-text">trusted links</span>
+                    <span className="muted-text">matched study items</span>
                   </div>
                 </div>
 
@@ -635,10 +680,15 @@ function ContentPage() {
                     onClick={handleStartStudyFromContent}
                     disabled={isStartingContentStudy || !contentStudyPack?.items?.length}
                   >
-                    {isStartingContentStudy ? 'Starting study...' : 'Start Study from this Content'}
+                    {isStartingContentStudy ? 'Starting practice...' : 'Start Practice'}
                   </button>
+                  {!canEditTranscript && canCreateWorkspaceCopy ? (
+                    <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                      {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+                    </button>
+                  ) : null}
                   <button type="button" onClick={() => loadContentStudyPack(selectedContentId)} disabled={isLoadingContentStudy}>
-                    {isLoadingContentStudy ? 'Refreshing study...' : 'Refresh transcript-backed study'}
+                    {isLoadingContentStudy ? 'Refreshing practice...' : 'Refresh Practice Set'}
                   </button>
                   <div className="content-generate-inline">
                     <label>
@@ -658,16 +708,16 @@ function ContentPage() {
                       disabled={isGeneratingStudy || !selectedContent.studyGenerationReady}
                       onClick={handleGenerateStudyFromContent}
                     >
-                      {isGeneratingStudy ? 'Generating...' : 'Generate trusted flashcards'}
+                      {isGeneratingStudy ? 'Generating...' : 'Make Flashcards'}
                     </button>
                   </div>
                 </div>
                 <DisclosurePanel
-                  title="Study details"
+                  title="Practice set"
                   description={
                     contentStudyPack?.items?.length
-                      ? `${contentStudyPack.items.length} transcript-backed item${contentStudyPack.items.length === 1 ? '' : 's'} ready to preview.`
-                      : 'No study items yet.'
+                      ? `${contentStudyPack.items.length} practice item${contentStudyPack.items.length === 1 ? '' : 's'} ready to preview.`
+                      : 'No practice items yet.'
                   }
                   defaultOpen={Boolean(contentStudyPack?.items?.length)}
                 >
@@ -683,7 +733,7 @@ function ContentPage() {
                               <strong>{item.title}</strong>
                               <div className="content-summary-strip">
                                 <span className="mapped-column-tag">{formatStudyLabel(item.generationType)}</span>
-                                <span className="mapped-column-tag">{formatStudyLabel(item.trustState)}</span>
+                                <span className="mapped-column-tag">{item.trustState === 'trusted' ? 'Matched' : formatStudyLabel(item.trustState)}</span>
                               </div>
                             </div>
                             <span className="muted-text">{item.prompt}</span>
@@ -693,19 +743,21 @@ function ContentPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="muted-text">Save transcript segments first. Quiz seeds only appear when trusted links exist.</p>
+                    <p className="muted-text">Save lines first. Quiz prompts appear after Lingua finds solid matches.</p>
                   )}
                 </DisclosurePanel>
               </div>
 
-              <DisclosurePanel title="Transcript" description="Manual transcript workflow and current segments.">
+              <DisclosurePanel title="Lines and timing" description="Add lines from the video and review what has been saved.">
                 <div className="content-summary-strip">
-                  <span className="mapped-column-tag">{transcriptSummary.segmentCount || 0} segments</span>
-                  <span className="mapped-column-tag">{transcriptSummary.linkedSentenceCount || 0} sentence links</span>
-                  <span className="mapped-column-tag">{transcriptSummary.linkedVocabularyCount || 0} vocab links</span>
+                  <span className="mapped-column-tag">{transcriptSummary.segmentCount || 0} lines</span>
+                  <span className="mapped-column-tag">{transcriptSummary.linkedSentenceCount || 0} sentence matches</span>
+                  <span className="mapped-column-tag">{transcriptSummary.linkedVocabularyCount || 0} word matches</span>
                 </div>
+                {canEditTranscript ? (
+                  <>
                 <label>
-                  Transcript source
+                  Line source
                   <select value={transcriptSource} onChange={(event) => setTranscriptSource(event.target.value)}>
                     <option value="manual">Manual</option>
                     <option value="youtube_caption">YouTube caption</option>
@@ -714,7 +766,7 @@ function ContentPage() {
                   </select>
                 </label>
                 <label>
-                  Transcript lines
+                  Lines with timing
                   <textarea
                     value={transcriptDraft}
                     onChange={(event) => setTranscriptDraft(event.target.value)}
@@ -725,12 +777,26 @@ function ContentPage() {
                 <button
                   type="button"
                   onClick={handleSaveTranscript}
-                  disabled={isSavingTranscript || !transcriptDraft.trim() || !selectedContent.isOwnedByCurrentUser}
+                  disabled={isSavingTranscript || !transcriptDraft.trim()}
                 >
-                  {isSavingTranscript ? 'Saving transcript...' : 'Save transcript segments'}
+                  {isSavingTranscript ? 'Saving lines...' : 'Save Lines'}
                 </button>
+                  </>
+                ) : (
+                  <div className="empty-state compact-empty-state">
+                    <h4>Save your own copy to edit</h4>
+                    <p className="muted-text">
+                      Shared content stays protected. Save your own copy to add lines, build matches, and practice from it.
+                    </p>
+                    {canCreateWorkspaceCopy ? (
+                      <button type="button" onClick={handleCreateWorkspaceCopy} disabled={isCreatingWorkspaceCopy}>
+                        {isCreatingWorkspaceCopy ? 'Saving your copy...' : 'Save Your Copy'}
+                      </button>
+                    ) : null}
+                  </div>
+                )}
                 {isLoadingTranscript ? (
-                  <p className="muted-text">Loading transcript segments...</p>
+                  <p className="muted-text">Loading saved lines...</p>
                 ) : transcriptSegments.length > 0 ? (
                   <div className="content-transcript-list">
                     {transcriptSegments.slice(0, 8).map((segment) => (
@@ -741,25 +807,25 @@ function ContentPage() {
                         <div className="content-transcript-copy">
                           <strong>{segment.rawText}</strong>
                           <span className="muted-text">
-                            {formatStudyLabel(segment.validationStatus)} • {segment.trustedLinkCount || 0} trusted links
+                            {formatStudyLabel(segment.validationStatus)} • {segment.trustedLinkCount || 0} matches
                           </span>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="muted-text">No transcript segments saved yet.</p>
+                  <p className="muted-text">No lines saved yet.</p>
                 )}
               </DisclosurePanel>
 
-              <DisclosurePanel title="Content info" description="Tags, source details, and learning metadata.">
+              <DisclosurePanel title="About this content" description="Tags, source details, and learning notes.">
                 <div className="mapping-grid">
                   <div className="detail-section-card">
                     <h4>Overview</h4>
                     <p className="muted-text">Type: {selectedContent.contentType}</p>
                     <p className="muted-text">Source type: {selectedContent.sourceType}</p>
                     <p className="muted-text">Visibility: {selectedContent.visibilityLabel}</p>
-                    <p className="muted-text">Transcript: {selectedContent.transcriptStatus}</p>
+                    <p className="muted-text">Saved lines: {selectedContent.transcriptStatus}</p>
                   </div>
                   <div className="detail-section-card">
                     <h4>Tags</h4>
@@ -776,21 +842,25 @@ function ContentPage() {
                 </div>
               </DisclosurePanel>
 
-              <DisclosurePanel title="Advanced" description="Pipeline status and quieter provenance details.">
+              <DisclosurePanel title="More details" description="Extra status and source details.">
                 <div className="mapping-grid">
                   <div className="detail-section-card">
-                    <h4>Pipeline</h4>
-                    <p className="muted-text">Discovery source: {selectedContent.discoverySource}</p>
-                    <p className="muted-text">Recommendation-ready: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
-                    <p className="muted-text">Transcript source: {selectedContent.transcriptSource || 'none'}</p>
-                    <p className="muted-text">Vocabulary links: {selectedContent.linkedVocabularyIds?.length || 0}</p>
-                    <p className="muted-text">Sentence links: {selectedContent.linkedSentenceIds?.length || 0}</p>
+                    <h4>Practice status</h4>
+                    <p className="muted-text">Found from: {selectedContent.discoverySource}</p>
+                    <p className="muted-text">Ready to practice: {selectedContent.recommendationEligible ? 'Yes' : 'No'}</p>
+                    <p className="muted-text">Line source: {selectedContent.transcriptSource || 'none'}</p>
+                    <p className="muted-text">Word matches: {selectedContent.linkedVocabularyIds?.length || 0}</p>
+                    <p className="muted-text">Sentence matches: {selectedContent.linkedSentenceIds?.length || 0}</p>
                   </div>
                   <div className="detail-section-card">
-                    <h4>Provenance</h4>
+                    <h4>Source details</h4>
+                    <p className="muted-text">Copy type: {selectedContent.isWorkspaceCopy ? 'your saved copy' : 'shared original'}</p>
+                    {selectedContent.workspaceSourceContentId ? (
+                      <p className="muted-text">Original shared item: {selectedContent.workspaceSourceContentId}</p>
+                    ) : null}
                     <p className="muted-text">Source URL: {selectedContent.sourceUrl || 'Not provided'}</p>
-                    <p className="muted-text">Ingestion: {selectedContent.provenance?.ingestionMethod || 'manual'}</p>
-                    <p className="muted-text">Snapshot title: {selectedContent.provenance?.sourceSnapshotTitle || selectedContent.title}</p>
+                    <p className="muted-text">Added by: {selectedContent.provenance?.ingestionMethod || 'manual'}</p>
+                    <p className="muted-text">Saved title: {selectedContent.provenance?.sourceSnapshotTitle || selectedContent.title}</p>
                   </div>
                 </div>
               </DisclosurePanel>
@@ -798,7 +868,7 @@ function ContentPage() {
           ) : (
             <div className="card empty-state empty-state-emphasis">
               <h4>Select content</h4>
-              <p className="muted-text">Choose a source from the library to open its watch-and-study view.</p>
+              <p className="muted-text">Choose something from the library to open it and start practicing from it.</p>
             </div>
           )}
         </div>

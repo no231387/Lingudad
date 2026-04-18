@@ -11,6 +11,21 @@ const GOAL_OPTIONS = [
   { value: 'speaking', label: 'Speaking', description: 'Output and production' }
 ];
 
+const TOPIC_OPTIONS = [
+  { value: 'daily_conversation', label: 'Daily conversation', description: 'Everyday phrases and common situations' },
+  { value: 'food', label: 'Food', description: 'Ordering, menus, and ingredients' },
+  { value: 'travel', label: 'Travel', description: 'Transit, directions, and trips' },
+  { value: 'workplace', label: 'Workplace', description: 'Professional routines and office language' },
+  { value: 'hobbies', label: 'Hobbies', description: 'Personal interests and free time' },
+  { value: 'listening_practice', label: 'Listening practice', description: 'Audio-heavy material and comprehension' }
+];
+
+const REGISTER_OPTIONS = [
+  { value: 'casual', label: 'Casual', description: 'Relaxed everyday speech' },
+  { value: 'polite', label: 'Polite', description: 'Courteous language for common interactions' },
+  { value: 'mixed', label: 'Mixed', description: 'A blend of natural casual and polite speech' }
+];
+
 const LEVEL_OPTIONS = [
   { value: 'beginner', label: 'Beginner', description: 'Basic words and patterns' },
   { value: 'intermediate', label: 'Intermediate', description: 'Common material and review' },
@@ -26,6 +41,8 @@ function OnboardingPage() {
     language: user?.language || 'Japanese',
     level: user?.level || 'beginner',
     goals: user?.goals?.length ? user.goals : ['vocabulary'],
+    preferredTopics: user?.preferredTopics?.length ? user.preferredTopics : ['daily_conversation'],
+    preferredRegister: user?.preferredRegister?.length ? user.preferredRegister : ['mixed'],
     dailyGoal: user?.dailyGoal ?? 10
   });
   const [error, setError] = useState('');
@@ -39,12 +56,12 @@ function OnboardingPage() {
     }));
   };
 
-  const toggleGoal = (goal) => {
+  const toggleListValue = (field, value) => {
     setFormData((previous) => ({
       ...previous,
-      goals: previous.goals.includes(goal)
-        ? previous.goals.filter((item) => item !== goal)
-        : [...previous.goals, goal]
+      [field]: previous[field].includes(value)
+        ? previous[field].filter((item) => item !== value)
+        : [...previous[field], value]
     }));
   };
 
@@ -76,7 +93,7 @@ function OnboardingPage() {
       <PageIntro
         eyebrow="Onboarding"
         title="Learning profile"
-        description="Choose your target language, current level, and study goals."
+        description="Set up the basics so Lingua can guide your practice."
       />
 
       <form className="card form-card form-shell" onSubmit={handleSubmit}>
@@ -90,7 +107,7 @@ function OnboardingPage() {
         <div className="form-section">
           <div className="section-stack-tight">
             <h3>Proficiency level</h3>
-            <p className="muted-text">Choose the level that best matches your current study range.</p>
+            <p className="muted-text">Choose the level that feels closest to where you are right now.</p>
           </div>
           <div className="option-grid">
             {LEVEL_OPTIONS.map((level) => (
@@ -110,7 +127,7 @@ function OnboardingPage() {
         <div className="form-section">
           <div className="section-stack-tight">
             <h3>Learning goals</h3>
-            <p className="muted-text">Select the areas you want Lingua to prioritize.</p>
+            <p className="muted-text">Pick the areas you want Lingua to focus on first.</p>
           </div>
           <div className="option-grid">
             {GOAL_OPTIONS.map((goal) => (
@@ -118,7 +135,7 @@ function OnboardingPage() {
                 <input
                   type="checkbox"
                   checked={formData.goals.includes(goal.value)}
-                  onChange={() => toggleGoal(goal.value)}
+                  onChange={() => toggleListValue('goals', goal.value)}
                 />
                 <span className="selection-card-indicator" aria-hidden="true" />
                 <span className="option-card-copy">
@@ -132,8 +149,60 @@ function OnboardingPage() {
 
         <div className="form-section">
           <div className="section-stack-tight">
+            <h3>Topics you want more often</h3>
+            <p className="muted-text">Pick a few themes so Lingua can lean toward material you actually want to practice.</p>
+          </div>
+          <div className="option-grid">
+            {TOPIC_OPTIONS.map((topic) => (
+              <label
+                key={topic.value}
+                className={`selection-card ${formData.preferredTopics.includes(topic.value) ? 'is-selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={formData.preferredTopics.includes(topic.value)}
+                  onChange={() => toggleListValue('preferredTopics', topic.value)}
+                />
+                <span className="selection-card-indicator" aria-hidden="true" />
+                <span className="option-card-copy">
+                  <span className="option-card-title">{topic.label}</span>
+                  <span className="option-card-description">{topic.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-section">
+          <div className="section-stack-tight">
+            <h3>Conversation style</h3>
+            <p className="muted-text">Tell Lingua whether you want more casual, more polite, or a balanced mix.</p>
+          </div>
+          <div className="option-grid">
+            {REGISTER_OPTIONS.map((registerOption) => (
+              <label
+                key={registerOption.value}
+                className={`selection-card ${formData.preferredRegister.includes(registerOption.value) ? 'is-selected' : ''}`}
+              >
+                <input
+                  type="checkbox"
+                  checked={formData.preferredRegister.includes(registerOption.value)}
+                  onChange={() => toggleListValue('preferredRegister', registerOption.value)}
+                />
+                <span className="selection-card-indicator" aria-hidden="true" />
+                <span className="option-card-copy">
+                  <span className="option-card-title">{registerOption.label}</span>
+                  <span className="option-card-description">{registerOption.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="form-section">
+          <div className="section-stack-tight">
             <h3>Daily practice goal</h3>
-            <p className="muted-text">Set a target for reviewed items per day.</p>
+            <p className="muted-text">Set a simple daily target for how much you want to review.</p>
           </div>
           <div className="choice-chip-row">
             {DAILY_GOAL_PRESETS.map((goal) => (
@@ -164,7 +233,7 @@ function OnboardingPage() {
 
         <div className="action-row">
           <button type="submit" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save profile'}
+            {isSaving ? 'Saving...' : 'Save and continue'}
           </button>
         </div>
       </form>

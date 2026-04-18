@@ -2,7 +2,7 @@ const Deck = require('../models/Deck');
 const Flashcard = require('../models/Flashcard');
 const LearningContent = require('../models/LearningContent');
 const StudySession = require('../models/StudySession');
-const { serializeContent, getRecommendedContent } = require('../services/contentService');
+const { serializeContent, getRecommendedContent, CONTENT_VISIBILITY } = require('../services/contentService');
 const { getRecommendedPresets } = require('../services/presetService');
 
 const startOfToday = () => {
@@ -16,19 +16,25 @@ exports.getDashboardOverview = async (req, res) => {
     const today = startOfToday();
     const userId = req.user._id;
 
-    const [decks, sessions, recommendedContent, savedContent, totalCards, masteredCards, newCards] = await Promise.all([
+    const [decks, sessions, recommendedContentResult, savedContentResult, totalCards, masteredCards, newCards, recommendedPresetsResult] = await Promise.all([
       Deck.find({ owner: userId }).sort({ updatedAt: -1 }).limit(4),
       StudySession.find({ owner: userId }).populate({ path: 'deck', select: 'name language' }).sort({ completedAt: -1 }).limit(3),
-      getRecommendedContent({ user: req.user, query: { limit: 4 } }),
+      getRecommendedContent({ user: req.user, query: { limit: 4 } }).catch(() => ({ items: [] })),
       LearningContent.find({
         savedBy: userId,
-        $or: [{ visibility: CONTENT_VISIBILITY.COMMUNITY }, { createdBy: userId }]
+        $or: [{ visibility: { $in: [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL] } }, { createdBy: userId }]
       })
         .sort({ updatedAt: -1 })
-        .limit(2),
+        .limit(2)
+        .catch(() => []),
       Flashcard.countDocuments({ owner: userId }),
       Flashcard.countDocuments({ owner: userId, proficiency: 5 }),
-      Flashcard.countDocuments({ owner: userId, proficiency: 1 })
+      Flashcard.countDocuments({ owner: userId, proficiency: 1 }),
+      getRecommendedPresets({
+        user: req.user,
+        language: req.user.language || 'Japanese',
+        limit: 3
+      }).catch(() => [])
     ]);
 
     const deckIds = decks.map((deck) => deck._id);
@@ -43,11 +49,9 @@ exports.getDashboardOverview = async (req, res) => {
     const reviewedTodaySessions = await StudySession.find({ owner: userId, completedAt: { $gte: today } }).select('reviewedCount');
     const reviewedToday = reviewedTodaySessions.reduce((sum, session) => sum + (session.reviewedCount || 0), 0);
     const dailyGoal = req.user.dailyGoal || 0;
-    const recommendedPresets = await getRecommendedPresets({
-      user: req.user,
-      language: req.user.language || 'Japanese',
-      limit: 3
-    });
+    const recommendedContent = recommendedContentResult?.items ? recommendedContentResult : { items: [] };
+    const savedContent = Array.isArray(savedContentResult) ? savedContentResult : [];
+    const recommendedPresets = Array.isArray(recommendedPresetsResult) ? recommendedPresetsResult : [];
 
     res.status(200).json({
       stats: {

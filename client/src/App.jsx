@@ -14,6 +14,7 @@ const DecksPage = lazy(() => import('./pages/DecksPage'));
 const EditFlashcardPage = lazy(() => import('./pages/EditFlashcardPage'));
 const OfficialBeginnerDecksPage = lazy(() => import('./pages/OfficialBeginnerDecksPage'));
 const StudySessionPage = lazy(() => import('./pages/StudySessionPage'));
+const QuizSessionPage = lazy(() => import('./pages/QuizSessionPage'));
 const ImportFlashcardsPage = lazy(() => import('./pages/ImportFlashcardsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
@@ -112,7 +113,8 @@ function App() {
             { to: '/flashcards', label: 'Flashcards', shortLabel: 'Cards' },
             { to: '/community', label: 'Community', shortLabel: 'Community' },
             { to: '/import', label: 'Import', shortLabel: 'Import' },
-            { to: '/study', label: 'Study', shortLabel: 'Study' }
+            { to: '/study', label: 'Study', shortLabel: 'Study' },
+            { to: '/quiz', label: 'Quiz', shortLabel: 'Quiz' }
           ]
         : [
             { to: '/login', label: 'Login', shortLabel: 'Login' },
@@ -242,6 +244,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <StudySessionPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/quiz"
+            element={
+              <ProtectedRoute>
+                <QuizSessionPage />
               </ProtectedRoute>
             }
           />

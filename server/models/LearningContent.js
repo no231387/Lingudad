@@ -171,6 +171,26 @@ const learningContentSchema = new mongoose.Schema(
       type: Boolean,
       default: true
     },
+    workspaceType: {
+      type: String,
+      enum: ['base', 'study_copy'],
+      default: 'base'
+    },
+    workspaceSourceContentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'LearningContent',
+      default: null
+    },
+    workspaceSourceVisibility: {
+      type: String,
+      enum: ['', 'community', 'private', 'global'],
+      default: ''
+    },
+    workspaceSourceOwnerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: {}
@@ -239,6 +259,7 @@ learningContentSchema.index({ language: 1, sourceType: 1, createdAt: -1 });
 learningContentSchema.index({ visibility: 1, recommendationEligible: 1, language: 1, createdAt: -1 });
 learningContentSchema.index({ isSystemContent: 1, isCurated: 1, seedSource: 1, createdAt: -1 });
 learningContentSchema.index({ transcriptStatus: 1, transcriptAvailable: 1 });
+learningContentSchema.index({ createdBy: 1, workspaceSourceContentId: 1 });
 learningContentSchema.index({ topicTags: 1 });
 learningContentSchema.index({ registerTags: 1 });
 learningContentSchema.index({ skillTags: 1 });

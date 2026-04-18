@@ -78,7 +78,7 @@ Run locally:
 ```bash
 cd server
 npm install
-npm run seed:presets
+npm run seed:system
 npm run dev
 ```
 
@@ -102,7 +102,8 @@ Recommended deployment flow:
 1. Connect `no231387/Lingudad` in DigitalOcean App Platform.
 2. If auto-detect still misses the app, import [`.do/app.yaml`](./.do/app.yaml).
 3. Set real values for `MONGODB_URI` and `JWT_SECRET`.
-4. Deploy.
+4. Run `cd server && npm run seed:system` against the target MongoDB.
+5. Deploy.
 
 Required environment variables:
 
@@ -119,7 +120,9 @@ Notes:
 - The frontend is built into `client/dist` during the Docker build.
 - The Express server serves the SPA in production and exposes `/api/health`.
 - Because frontend and backend share one origin in production, `CORS_ORIGINS` can usually just be your DigitalOcean app URL or custom domain.
-- Seed global system presets into the target MongoDB before first use with `cd server && npm run seed:presets`.
+- `npm run seed:system` seeds required global system presets and starter content into the configured MongoDB.
+- `npm run seed:system` is safe to rerun for local or remote MongoDB because both underlying seeds are idempotent.
+- `npm run deploy:prepare` is a small helper alias for the same system seed step when you want a deployment-oriented command name.
 
 ## Docker deployment
 
@@ -145,3 +148,12 @@ MONGODB_URI=replace_with_your_mongodb_connection_string
 JWT_SECRET=replace_with_a_long_random_secret
 CORS_ORIGINS=https://your-domain.com
 ```
+
+Before first production use, run:
+
+```bash
+cd server
+npm run deploy:prepare
+```
+
+This prepares a fresh remote MongoDB with the required system presets and starter/global content. It is safe to rerun during later releases when you need seeded records updated in place.
