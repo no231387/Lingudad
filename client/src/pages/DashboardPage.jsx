@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
 import { getDashboardOverview } from '../services/flashcardService';
+import { normalizeRecommendationItems } from '../utils/recommendationResponse';
 
 const createDefaultOverview = () => ({
   stats: { total: 0, mastered: 0, newCards: 0 },
@@ -38,8 +39,9 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
 
   const sessions = overview.continueLearning.sessions || [];
   const recentSessions = sessions.slice(0, RECENT_SESSIONS_HOME_LIMIT);
+  const recommendedContent = normalizeRecommendationItems(overview.recommendedContent);
   const hasSessions = sessions.length > 0;
-  const hasRecommendedContent = overview.recommendedContent.length > 0;
+  const hasRecommendedContent = recommendedContent.length > 0;
   const hasRecommendedPresets = overview.recommendedPresets.length > 0;
   const hasDecks = overview.decks.length > 0;
   const totalFlashcards = overview.stats?.total ?? 0;
@@ -90,14 +92,14 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                 <h3>Content for you</h3>
                 <p className="muted-text">Matched to your level and goals.</p>
               </div>
-              <Link className="secondary-button" to="/content">
+              <Link className="secondary-button" to="/content?view=community">
                 See all
               </Link>
             </div>
 
             {hasRecommendedContent ? (
               <div className="list-grid dashboard-content-grid">
-                {overview.recommendedContent.map((item) => (
+                {recommendedContent.map((item) => (
                   <article key={item._id} className="card content-preview-card content-preview-card-compact content-preview-soft">
                     <div className="content-preview-media" aria-hidden="true">
                       {item.thumbnail ? <img src={item.thumbnail} alt="" /> : <span>{item.contentType === 'youtube' ? 'YT' : 'SRC'}</span>}
@@ -108,7 +110,7 @@ function DashboardPage({ initialOverview = null, onOverviewLoaded }) {
                         {item.difficulty || 'Open level'} • {item.visibilityBadge || item.visibilityLabel}
                       </p>
                     </div>
-                    <Link className="secondary-button" to="/content">
+                    <Link className="secondary-button" to={`/content?view=community&contentId=${item._id}`}>
                       Open
                     </Link>
                   </article>

@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
+import { normalizeRecommendationResponse } from '../utils/recommendationResponse';
 import {
   createLearningContent,
   createWorkspaceCopyFromContent,
@@ -67,6 +68,7 @@ function ContentPage() {
   const [searchParams] = useSearchParams();
   const [contentItems, setContentItems] = useState([]);
   const [recommendedContent, setRecommendedContent] = useState([]);
+  const [recommendationMeta, setRecommendationMeta] = useState(null);
   const [contentSummary, setContentSummary] = useState({
     communityCount: 0,
     myUploadsCount: 0,
@@ -104,6 +106,8 @@ function ContentPage() {
   const [isCreatingWorkspaceCopy, setIsCreatingWorkspaceCopy] = useState(false);
   const [quickQuizItems, setQuickQuizItems] = useState([]);
   const [isLoadingQuickQuiz, setIsLoadingQuickQuiz] = useState(false);
+  const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
+  const [hasRecommendationError, setHasRecommendationError] = useState(false);
 
   const contentIdParam = searchParams.get('contentId');
 
@@ -153,16 +157,12 @@ function ContentPage() {
   useEffect(() => {
     const loadPageData = async () => {
       try {
-        const [deckResult, contentResult, recommendedResult] = await Promise.allSettled([
+        const [deckResult, contentResult] = await Promise.allSettled([
           getDecks(),
           getLearningContent({
             language: user?.language || 'Japanese',
             scope: contentView,
             q: contentQuery
-          }),
-          getRecommendedLearningContent({
-            language: user?.language || 'Japanese',
-            limit: 4
           })
         ]);
 
@@ -171,7 +171,6 @@ function ContentPage() {
           contentResult.status === 'fulfilled'
             ? contentResult.value.data
             : { items: [], summary: { communityCount: 0, myUploadsCount: 0, savedCount: 0, recommendationReadyCount: 0 } };
-        const recommendedData = recommendedResult.status === 'fulfilled' ? recommendedResult.value.data : { items: [] };
 
         const items = contentData.items || [];
         const ids = new Set(items.map((item) => item._id));
@@ -179,7 +178,6 @@ function ContentPage() {
         startTransition(() => {
           setDecks(deckData);
           setContentItems(items);
-          setRecommendedContent(recommendedData.items || []);
           setContentSummary(contentData.summary || {});
           setSelectedContentId((current) => {
             if (current && ids.has(current)) return current;
@@ -193,6 +191,64 @@ function ContentPage() {
 
     loadPageData();
   }, [contentQuery, contentView, user?.language]);
+
+  useEffect(() => {
+    if (contentView !== 'community') {
+      setIsLoadingRecommendations(false);
+      setHasRecommendationError(false);
+      setRecommendationMeta(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadRecommendations = async () => {
+      try {
+        setIsLoadingRecommendations(true);
+        setHasRecommendationError(false);
+
+        const { data } = await getRecommendedLearningContent({
+          language: user?.language || 'Japanese',
+          limit: 4
+        });
+        const normalized = normalizeRecommendationResponse(data);
+
+        if (cancelled) {
+          return;
+        }
+
+        setRecommendedContent(normalized.items);
+        setRecommendationMeta(normalized.meta);
+
+        if (import.meta.env.DEV) {
+          console.debug('Content recommendations loaded', {
+            itemCount: normalized.items.length,
+            meta: normalized.meta
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load recommended content:', error);
+
+        if (cancelled) {
+          return;
+        }
+
+        setRecommendedContent([]);
+        setRecommendationMeta(null);
+        setHasRecommendationError(true);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingRecommendations(false);
+        }
+      }
+    };
+
+    loadRecommendations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [contentView, user?.language]);
 
   const refreshContent = async (preferredContentId = '', scopeOverride = '') => {
     const { data } = await getLearningContent({
@@ -531,15 +587,26 @@ function ContentPage() {
               <input value={contentQuery} onChange={(event) => setContentQuery(event.target.value)} placeholder="Search by title, tag, or source" />
             </label>
 
-            {contentView === 'community' && recommendedContent.length ? (
+            {contentView === 'community' ? (
               <div className="section-stack-tight">
                 <div className="section-header content-library-subheader">
                   <div>
-                    <h4>Recommended</h4>
-                    <p className="muted-text">Based on your level and activity.</p>
+                    <h4>Recommended for you</h4>
+                    <p className="muted-text">
+                      {recommendationMeta?.isColdStart ? 'A few good places to start.' : 'Picked for your next practice round.'}
+                    </p>
                   </div>
                 </div>
-                <div className="content-recommendation-list">
+                {isLoadingRecommendations ? (
+                  <div className="empty-state compact-empty-state">
+                    <p className="muted-text">Finding a few good picks for you.</p>
+                  </div>
+                ) : hasRecommendationError ? (
+                  <div className="empty-state compact-empty-state">
+                    <p className="muted-text">Recommendations are unavailable right now. Browse the library below.</p>
+                  </div>
+                ) : recommendedContent.length ? (
+                  <div className="content-recommendation-list">
                   {recommendedContent.map((item) => (
                     <button
                       key={item._id}
@@ -556,7 +623,12 @@ function ContentPage() {
                       </div>
                     </button>
                   ))}
-                </div>
+                  </div>
+                ) : (
+                  <div className="empty-state compact-empty-state">
+                    <p className="muted-text">No recommendations yet. Browse the library below.</p>
+                  </div>
+                )}
               </div>
             ) : null}
 
