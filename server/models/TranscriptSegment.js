@@ -56,12 +56,12 @@ const transcriptSegmentSchema = new mongoose.Schema(
     startTimeSeconds: {
       type: Number,
       min: 0,
-      required: [true, 'Start time is required']
+      default: null
     },
     endTimeSeconds: {
       type: Number,
       min: 0,
-      required: [true, 'End time is required']
+      default: null
     },
     rawText: {
       type: String,

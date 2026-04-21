@@ -43,6 +43,7 @@ const buildContent = (overrides = {}) => ({
   title: overrides.title || 'Starter lesson',
   sourceProvider: overrides.sourceProvider || 'youtube',
   sourceId: overrides.sourceId || `src-${overrides._id || '1'}`,
+  language: overrides.language || 'Japanese',
   visibility: overrides.visibility || 'global',
   recommendationEligible: overrides.recommendationEligible ?? true,
   transcriptStatus: overrides.transcriptStatus || 'manual_ready',
@@ -133,6 +134,25 @@ test('bad query values do not crash and fall back to sane defaults', async () =>
   assert.equal(result.meta.totalCandidatesConsidered >= 4, true);
 });
 
+test('legacy curated starter content remains recommendable when recommendationEligible is missing', async () => {
+  const service = buildService({
+    contentItems: [
+      buildContent({ _id: 'legacy-starter', recommendationEligible: undefined }),
+      buildContent({ _id: 'explicit-opt-out', recommendationEligible: false })
+    ]
+  });
+
+  const result = await service.getRecommendedContent({
+    user: buildUser({ goals: [], preferredTopics: [], preferredRegister: [] }),
+    query: { limit: 4 }
+  });
+
+  assert.deepEqual(
+    result.items.map((item) => item._id),
+    ['legacy-starter']
+  );
+});
+
 test('debug mode adds recommendationDebug but normal mode does not', async () => {
   const contentItems = [buildContent({ _id: 'debug-1' })];
   const service = buildService({ contentItems });
@@ -148,4 +168,20 @@ test('debug mode adds recommendationDebug but normal mode does not', async () =>
 
   assert.equal(Object.hasOwn(normalResult.items[0], 'recommendationDebug'), false);
   assert.equal(Object.hasOwn(debugResult.items[0], 'recommendationDebug'), true);
+  assert.equal(debugResult.meta.debug.inventory.totalFetched, 1);
+});
+
+test('debug mode reports why recommendations are empty when language does not match', async () => {
+  const service = buildService({
+    contentItems: [buildContent({ _id: 'starter-1', language: 'Japanese' })]
+  });
+
+  const result = await service.getRecommendedContent({
+    user: buildUser({ language: 'Spanish' }),
+    query: { debug: 'true' }
+  });
+
+  assert.equal(result.items.length, 0);
+  assert.equal(result.meta.debug.excluded.languageMismatch, 1);
+  assert.equal(result.meta.debug.emptyReason, 'no_language_matched_content');
 });

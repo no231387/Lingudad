@@ -6,11 +6,14 @@ const {
   getLearningContent,
   getLearningContentById,
   getRecommendedLearningContent,
+  sourceAndPromoteYoutubeCandidates,
   startStudySessionFromContent,
+  promoteSourcedCandidate,
   createWorkspaceCopy,
   getTranscriptBackedStudyPack,
   saveContentTranscriptSegments,
   saveLearningContent,
+  sourceYoutubeCandidates,
   unsaveLearningContent
 } = require('../controllers/contentController');
 const { protect } = require('../middleware/authMiddleware');
@@ -20,6 +23,9 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/recommended', getRecommendedLearningContent);
+router.post('/source/youtube-candidates', sourceYoutubeCandidates);
+router.post('/source-and-promote/youtube', sourceAndPromoteYoutubeCandidates);
+router.post('/:id/promote-sourced-candidate', promoteSourcedCandidate);
 router.route('/').get(getLearningContent).post(createLearningContent);
 router.get('/:id', getLearningContentById);
 router.post('/:id/workspace-copy', createWorkspaceCopy);

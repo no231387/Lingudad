@@ -174,6 +174,14 @@ const canUserAccessContent = (item, user) => {
   return Boolean(user?._id) && String(item.createdBy?._id || item.createdBy) === String(user._id);
 };
 
+const isLegacyRecommendationReadyContent = (item) =>
+  item &&
+  (item.recommendationEligible === true ||
+    ((item.recommendationEligible === undefined || item.recommendationEligible === null) &&
+      [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL].includes(item.visibility) &&
+      item.contentType === CONTENT_TYPES.YOUTUBE &&
+      (item.isCurated || item.isSystemContent)));
+
 const buildLearningContentPayload = ({ body, user }) => {
   const contentType = inferContentType(body);
   const title = normalizeText(body.title);
@@ -359,20 +367,7 @@ const buildAccessibleContentFilter = (user) => ({
   ]
 });
 
-const getAccessibleContentDocumentById = async ({ id, user, populate = [] }) => {
-  const item = await LearningContent.findById(id).populate(populate);
-
-  if (!item || !canUserAccessContent(item, user)) {
-    return null;
-  }
-
-  return item;
-};
-
-const getContentList = async ({ user, query = {} }) => {
-  const filters = buildAccessibleContentFilter(user);
-  const scope = normalizeLower(query.scope || 'all');
-
+const applySharedContentQueryFilters = (filters, query = {}, user) => {
   if (query.language) {
     filters.language = buildLanguageMatch(query.language);
   }
@@ -388,6 +383,26 @@ const getContentList = async ({ user, query = {} }) => {
   if (query.sourceType) {
     filters.sourceType = normalizeText(query.sourceType);
   }
+
+  if (query.saved === 'true') {
+    filters.savedBy = user._id;
+  }
+
+  if (query.q) {
+    const pattern = new RegExp(escapeRegex(normalizeText(query.q)), 'i');
+    filters.$and = [
+      ...(filters.$and || []),
+      {
+        $or: [{ title: pattern }, { description: pattern }, { sourceId: pattern }, { sourceUrl: pattern }, { url: pattern }]
+      }
+    ];
+  }
+
+  return filters;
+};
+
+const applyScopedContentFilters = (filters, query = {}, user) => {
+  const scope = normalizeLower(query.scope || 'all');
 
   if (
     query.visibility &&
@@ -405,44 +420,45 @@ const getContentList = async ({ user, query = {} }) => {
     filters.savedBy = user._id;
   }
 
-  if (query.saved === 'true') {
-    filters.savedBy = user._id;
+  return filters;
+};
+
+const buildContentSummary = ({ items, userId }) => ({
+  totalVisible: items.length,
+  communityCount: items.filter((item) => item.visibility === CONTENT_VISIBILITY.COMMUNITY || item.visibility === CONTENT_VISIBILITY.GLOBAL).length,
+  myUploadsCount: items.filter((item) => item.visibility === CONTENT_VISIBILITY.PRIVATE && String(item.createdBy) === String(userId)).length,
+  savedCount: items.filter((item) => item.savedBy?.some((savedUserId) => String(savedUserId) === String(userId))).length,
+  recommendationReadyCount: items.filter(
+    (item) => [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL].includes(item.visibility) && isLegacyRecommendationReadyContent(item)
+  ).length
+});
+
+const getAccessibleContentDocumentById = async ({ id, user, populate = [] }) => {
+  const item = await LearningContent.findById(id).populate(populate);
+
+  if (!item || !canUserAccessContent(item, user)) {
+    return null;
   }
 
-  if (query.q) {
-    const pattern = new RegExp(escapeRegex(normalizeText(query.q)), 'i');
-    filters.$and = [
-      ...(filters.$and || []),
-      {
-        $or: [{ title: pattern }, { description: pattern }, { sourceId: pattern }, { sourceUrl: pattern }, { url: pattern }]
-      }
-    ];
-  }
+  return item;
+};
+
+const getContentList = async ({ user, query = {} }) => {
+  const summaryFilters = applySharedContentQueryFilters(buildAccessibleContentFilter(user), query, user);
+  const filters = applyScopedContentFilters({ ...summaryFilters }, query, user);
 
   const [items, visibleItems] = await Promise.all([
     LearningContent.find(filters)
       .populate({ path: 'createdBy', select: 'username language level goals' })
       .sort({ createdAt: -1 }),
-    LearningContent.find(buildAccessibleContentFilter(user)).select('visibility contentType createdBy recommendationEligible savedBy')
+    LearningContent.find(summaryFilters).select(
+      'visibility contentType createdBy recommendationEligible savedBy isCurated isSystemContent'
+    ).lean()
   ]);
-
-  const summary = {
-    totalVisible: visibleItems.length,
-    communityCount: visibleItems.filter(
-      (item) => item.visibility === CONTENT_VISIBILITY.COMMUNITY || item.visibility === CONTENT_VISIBILITY.GLOBAL
-    ).length,
-    myUploadsCount: visibleItems.filter(
-      (item) => item.visibility === CONTENT_VISIBILITY.PRIVATE && String(item.createdBy) === String(user._id)
-    ).length,
-    savedCount: visibleItems.filter((item) => item.savedBy?.some((savedUserId) => String(savedUserId) === String(user._id))).length,
-    recommendationReadyCount: visibleItems.filter(
-      (item) => [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL].includes(item.visibility) && item.recommendationEligible
-    ).length
-  };
 
   return {
     items: items.map((item) => serializeContent(item, user._id)),
-    summary
+    summary: buildContentSummary({ items: visibleItems, userId: user._id })
   };
 };
 
@@ -609,6 +625,12 @@ module.exports = {
   CONTENT_DISCOVERY_SOURCES,
   CONTENT_TYPES,
   CONTENT_VISIBILITY,
+  __testables: {
+    applySharedContentQueryFilters,
+    applyScopedContentFilters,
+    buildContentSummary,
+    isLegacyRecommendationReadyContent
+  },
   buildLearningContentPayload,
   canUserAccessContent,
   createContent,

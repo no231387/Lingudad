@@ -7,6 +7,16 @@ const {
   serializeContent
 } = require('../services/contentService');
 const { getRecommendedContent } = require('../services/contentRecommendationService');
+const {
+  canUserSourceYoutubeCandidates,
+  getYoutubeApiKey,
+  sourceYoutubeCandidates
+} = require('../services/youtubeCandidateSourcingService');
+const {
+  canUserPromoteSourcedCandidates,
+  promoteSourcedCandidate
+} = require('../services/contentCandidatePromotionService');
+const { sourceAndPromoteYoutubeContent } = require('../services/youtubeContentAcquisitionWorkflowService');
 const { getContentStudyPack, startContentStudySession } = require('../services/contentStudyService');
 const { createFlashcardsFromContent } = require('../services/studyGenerationService');
 const { getTranscriptSegmentsForContent, ingestTranscriptSegments } = require('../services/transcriptService');
@@ -26,6 +36,68 @@ exports.getRecommendedLearningContent = async (req, res) => {
     res.status(200).json(recommendations);
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch recommended content.', error: error.message });
+  }
+};
+
+exports.sourceYoutubeCandidates = async (req, res) => {
+  try {
+    if (!canUserSourceYoutubeCandidates(req.user)) {
+      return res.status(403).json({ message: 'YouTube candidate sourcing is not enabled for this account.' });
+    }
+
+    if (!getYoutubeApiKey()) {
+      return res.status(503).json({ message: 'YouTube candidate sourcing is not configured on the server.' });
+    }
+
+    const result = await sourceYoutubeCandidates({
+      user: req.user,
+      input: req.body || {}
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to source YouTube candidates.', error: error.message });
+  }
+};
+
+exports.promoteSourcedCandidate = async (req, res) => {
+  try {
+    if (!canUserPromoteSourcedCandidates(req.user)) {
+      return res.status(403).json({ message: 'Sourced candidate promotion is not enabled for this account.' });
+    }
+
+    const result = await promoteSourcedCandidate({
+      contentId: req.params.id,
+      user: req.user,
+      body: req.body || {}
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(400).json({ message: 'Failed to promote sourced candidate.', error: error.message });
+  }
+};
+
+exports.sourceAndPromoteYoutubeCandidates = async (req, res) => {
+  try {
+    if (!canUserSourceYoutubeCandidates(req.user) || !canUserPromoteSourcedCandidates(req.user)) {
+      return res.status(403).json({
+        message: 'YouTube source-and-promote is not enabled for this account.'
+      });
+    }
+
+    if (!getYoutubeApiKey()) {
+      return res.status(503).json({ message: 'YouTube candidate sourcing is not configured on the server.' });
+    }
+
+    const result = await sourceAndPromoteYoutubeContent({
+      user: req.user,
+      input: req.body || {}
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to source and promote YouTube candidates.', error: error.message });
   }
 };
 

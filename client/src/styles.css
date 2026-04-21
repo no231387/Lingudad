@@ -1370,6 +1370,77 @@ button {
   gap: 8px;
 }
 
+.content-acquisition-disclosure {
+  margin-top: 4px;
+}
+
+.content-acquisition-form {
+  display: grid;
+  gap: 12px;
+}
+
+.content-acquisition-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.content-acquisition-hint {
+  margin: 0;
+  font-size: 0.79rem;
+}
+
+.content-acquisition-feedback {
+  margin-top: 10px;
+}
+
+.content-acquisition-summary {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-color: color-mix(in srgb, var(--border-strong) 52%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-strong) 96%, transparent), var(--surface-soft));
+}
+
+.content-acquisition-summary h4 {
+  margin: 0;
+}
+
+.content-acquisition-summary--success {
+  border-color: color-mix(in srgb, var(--success) 34%, var(--border));
+}
+
+.content-acquisition-facts {
+  gap: 6px;
+}
+
+.content-acquisition-result-details {
+  margin-top: 2px;
+}
+
+.content-acquisition-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.content-acquisition-result-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.content-acquisition-result-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.content-acquisition-result-row p {
+  margin: 4px 0 0;
+}
+
 .content-list-compact {
   gap: 7px;
 }

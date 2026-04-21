@@ -9,6 +9,18 @@ const normalizeLower = (value) => normalizeText(value).toLowerCase();
 const uniqueValues = (values) => [...new Set((Array.isArray(values) ? values : []).map((value) => normalizeText(value)).filter(Boolean))];
 
 const normalizeSegmentText = (value) => normalizeText(value).replace(/\s+/g, ' ');
+const splitPlainTranscriptLine = (line) => {
+  const normalizedLine = normalizeText(line);
+
+  if (!normalizedLine) {
+    return [];
+  }
+
+  const sentenceMatches = normalizedLine.match(/[^。！？!?]+[。！？!?]?/g);
+  const segments = (sentenceMatches || []).map((entry) => normalizeText(entry)).filter(Boolean);
+
+  return segments.length > 1 ? segments : [normalizedLine];
+};
 
 const parseSeconds = (value) => {
   if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
@@ -48,7 +60,7 @@ const parseTranscriptText = (value) => {
     .filter(Boolean);
 
   return lines
-    .map((line, index) => {
+    .flatMap((line) => {
       const fullRangeMatch = line.match(/^(.+?)\s*(?:-->|-)\s*(.+?)\s*\|\s*(.+)$/);
       const pointMatch = line.match(/^(.+?)\s*\|\s*(.+)$/);
 
@@ -57,44 +69,49 @@ const parseTranscriptText = (value) => {
         const end = parseSeconds(fullRangeMatch[2]);
 
         if (start === null || end === null) {
-          return null;
+          return [];
         }
 
-        return {
-          segmentOrder: index,
-          startTimeSeconds: start,
-          endTimeSeconds: end,
-          rawText: fullRangeMatch[3]
-        };
+        return [
+          {
+            startTimeSeconds: start,
+            endTimeSeconds: end,
+            rawText: fullRangeMatch[3]
+          }
+        ];
       }
 
       if (pointMatch) {
         const start = parseSeconds(pointMatch[1]);
 
         if (start === null) {
-          return null;
+          return [];
         }
 
-        return {
-          segmentOrder: index,
-          startTimeSeconds: start,
-          endTimeSeconds: start,
-          rawText: pointMatch[2]
-        };
+        return [
+          {
+            startTimeSeconds: start,
+            endTimeSeconds: start,
+            rawText: pointMatch[2]
+          }
+        ];
       }
 
-      return {
-        segmentOrder: index,
-        startTimeSeconds: index * 5,
-        endTimeSeconds: index * 5 + 5,
-        rawText: line
-      };
+      return splitPlainTranscriptLine(line).map((sentence) => ({
+        startTimeSeconds: null,
+        endTimeSeconds: null,
+        rawText: sentence
+      }));
     })
-    .filter(Boolean);
+    .filter((segment) => normalizeText(segment.rawText))
+    .map((segment, index) => ({
+      segmentOrder: index,
+      ...segment
+    }));
 };
 
 const buildSegmentInputs = (body = {}) => {
-  if (Array.isArray(body.segments)) {
+  if (Array.isArray(body.segments) && body.segments.length > 0) {
     return body.segments.map((segment, index) => ({
       segmentOrder: Number(segment.segmentOrder ?? index),
       startTimeSeconds: parseSeconds(segment.startTimeSeconds),
@@ -105,6 +122,25 @@ const buildSegmentInputs = (body = {}) => {
   }
 
   return parseTranscriptText(body.transcriptText || body.segmentsText);
+};
+
+const buildTranscriptInputDebug = (body = {}) => {
+  const rawTranscriptText = String(body.transcriptText || body.segmentsText || '');
+  const normalizedTranscriptText = normalizeText(rawTranscriptText);
+  const parsedSegments = buildSegmentInputs(body);
+
+  return {
+    rawInputLength: rawTranscriptText.length,
+    normalizedInputLength: normalizedTranscriptText.length,
+    providedSegmentsCount: Array.isArray(body.segments) ? body.segments.length : 0,
+    parsedSegmentCount: parsedSegments.length,
+    parsedSegmentPreview: parsedSegments.slice(0, 2).map((segment) => ({
+      segmentOrder: Number(segment.segmentOrder),
+      startTimeSeconds: segment.startTimeSeconds,
+      endTimeSeconds: segment.endTimeSeconds,
+      rawTextPreview: normalizeText(segment.rawText).slice(0, 80)
+    }))
+  };
 };
 
 const buildSentenceLookupMap = (sentences = []) =>
@@ -154,7 +190,8 @@ const serializeTranscriptSegment = (segment) => {
   };
 };
 
-const createSegmentPayloads = async ({ content, user, body = {} }) => {
+const createSegmentPayloads = async ({ content, user, body = {}, allowMissingTiming = false }) => {
+  const transcriptInputDebug = buildTranscriptInputDebug(body);
   const segmentInputs = buildSegmentInputs(body)
     .map((segment, index) => ({
       segmentOrder: Number.isFinite(Number(segment.segmentOrder)) ? Number(segment.segmentOrder) : index,
@@ -166,10 +203,25 @@ const createSegmentPayloads = async ({ content, user, body = {} }) => {
           ? null
           : Math.max(0, Math.min(1, Number(segment.confidence)))
     }))
-    .filter((segment) => segment.startTimeSeconds !== null && segment.endTimeSeconds !== null && segment.rawText);
+    .filter((segment) => {
+      if (!segment.rawText) {
+        return false;
+      }
+
+      if (allowMissingTiming) {
+        return true;
+      }
+
+      return segment.startTimeSeconds !== null && segment.endTimeSeconds !== null;
+    });
 
   if (segmentInputs.length === 0) {
-    throw new Error('Provide at least one transcript segment or transcript text line to save.');
+    const error = new Error('Provide at least one transcript segment or transcript text line to save.');
+    error.transcriptInputDebug = {
+      ...transcriptInputDebug,
+      rejectionRule: 'no_valid_segments_after_parsing'
+    };
+    throw error;
   }
 
   const normalizedSegmentTexts = segmentInputs.map((segment) => normalizeSegmentText(segment.rawText));
@@ -236,7 +288,10 @@ const createSegmentPayloads = async ({ content, user, body = {} }) => {
       contentId: content._id,
       segmentOrder: segment.segmentOrder,
       startTimeSeconds: segment.startTimeSeconds,
-      endTimeSeconds: Math.max(segment.startTimeSeconds, segment.endTimeSeconds),
+      endTimeSeconds:
+        segment.startTimeSeconds === null || segment.endTimeSeconds === null
+          ? null
+          : Math.max(segment.startTimeSeconds, segment.endTimeSeconds),
       rawText: segment.rawText,
       normalizedText,
       language: content.language,
@@ -263,7 +318,11 @@ const createSegmentPayloads = async ({ content, user, body = {} }) => {
   return {
     payloads,
     linkedSentenceIds: [...allLinkedSentenceIds],
-    linkedVocabularyIds: [...allLinkedVocabularyIds]
+    linkedVocabularyIds: [...allLinkedVocabularyIds],
+    transcriptInputDebug: {
+      ...transcriptInputDebug,
+      acceptedSegmentCount: segmentInputs.length
+    }
   };
 };
 
@@ -288,22 +347,23 @@ const buildTranscriptSummary = (segments = []) => {
   };
 };
 
-const ingestTranscriptSegments = async ({ contentId, user, body = {} }) => {
+const ingestTranscriptSegments = async ({ contentId, user, body = {}, allowSystemIngestion = false, allowMissingTiming = false }) => {
   const content = await getAccessibleContentDocumentById({ id: contentId, user });
 
   if (!content) {
     throw new Error('Learning content not found.');
   }
 
-  if (String(content.createdBy) !== String(user._id)) {
+  if (!allowSystemIngestion && String(content.createdBy) !== String(user._id)) {
     throw new Error('You can only save transcript segments for content you created.');
   }
 
   const replaceExisting = body.replaceExisting !== false;
-  const { payloads, linkedSentenceIds, linkedVocabularyIds } = await createSegmentPayloads({
+  const { payloads, linkedSentenceIds, linkedVocabularyIds, transcriptInputDebug } = await createSegmentPayloads({
     content,
     user,
-    body
+    body,
+    allowMissingTiming
   });
 
   if (replaceExisting) {
@@ -335,7 +395,8 @@ const ingestTranscriptSegments = async ({ contentId, user, body = {} }) => {
   return {
     items: serializedSegments,
     summary: buildTranscriptSummary(serializedSegments),
-    contentTranscriptStatus: content.transcriptStatus
+    contentTranscriptStatus: content.transcriptStatus,
+    transcriptInputDebug
   };
 };
 
@@ -362,6 +423,11 @@ const getTranscriptSegmentsForContent = async ({ contentId, user }) => {
 };
 
 module.exports = {
+  __testables: {
+    buildSegmentInputs,
+    buildTranscriptInputDebug,
+    parseTranscriptText
+  },
   getTranscriptSegmentsForContent,
   ingestTranscriptSegments,
   serializeTranscriptSegment

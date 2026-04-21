@@ -116,6 +116,7 @@ export const getDashboardOverview = async ({ force = false } = {}) => {
 export const getLearningContent = (params = {}) => api.get('/content', { params });
 export const getLearningContentById = (id) => api.get(`/content/${id}`);
 export const getRecommendedLearningContent = (params = {}) => api.get('/content/recommended', { params });
+export const sourceAndPromoteYoutubeContent = (data = {}) => api.post('/content/source-and-promote/youtube', data);
 export const getContentTranscriptSegments = (id) => api.get(`/content/${id}/transcript-segments`);
 export const getContentStudyPack = (id) => api.get(`/content/${id}/study-pack`);
 export const startContentStudySession = (id) => api.post(`/content/${id}/start-study`);

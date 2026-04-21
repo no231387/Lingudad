@@ -2,6 +2,7 @@ import { startTransition, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
+import { buildContentAcquisitionPayload, summarizeContentAcquisitionResult } from '../utils/contentAcquisition';
 import { normalizeRecommendationResponse } from '../utils/recommendationResponse';
 import {
   createLearningContent,
@@ -14,6 +15,7 @@ import {
   getLearningContentById,
   getPlayableQuizItems,
   getRecommendedLearningContent,
+  sourceAndPromoteYoutubeContent,
   startContentStudySession,
   saveContentTranscriptSegments,
   saveLearningContent,
@@ -34,6 +36,14 @@ const initialContentForm = {
   topicTags: '',
   skillTags: '',
   registerTags: ''
+};
+
+const initialContentAcquisitionForm = {
+  studyQuery: '',
+  language: '',
+  level: '',
+  preferredTopics: '',
+  preferredRegister: ''
 };
 
 const CONTENT_LIBRARY_VIEWS = [
@@ -108,6 +118,16 @@ function ContentPage() {
   const [isLoadingQuickQuiz, setIsLoadingQuickQuiz] = useState(false);
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false);
   const [hasRecommendationError, setHasRecommendationError] = useState(false);
+  const [contentAcquisitionForm, setContentAcquisitionForm] = useState(() => ({
+    ...initialContentAcquisitionForm,
+    language: user?.language || 'Japanese',
+    level: user?.level || 'beginner',
+    preferredTopics: user?.preferredTopics?.join(', ') || '',
+    preferredRegister: user?.preferredRegister?.join(', ') || ''
+  }));
+  const [isFindingContent, setIsFindingContent] = useState(false);
+  const [contentAcquisitionResult, setContentAcquisitionResult] = useState(null);
+  const [contentAcquisitionError, setContentAcquisitionError] = useState('');
 
   const contentIdParam = searchParams.get('contentId');
 
@@ -126,6 +146,10 @@ function ContentPage() {
   const practiceMetricsAllZero = practiceListeningCount === 0 && practiceQuizCount === 0 && practiceMatchesCount === 0;
   const canEditTranscript = Boolean(selectedContent?.isOwnedByCurrentUser);
   const canCreateWorkspaceCopy = Boolean(selectedContent?.canCreateWorkspaceCopy);
+  const contentAcquisitionSummary = useMemo(
+    () => (contentAcquisitionResult ? summarizeContentAcquisitionResult(contentAcquisitionResult) : null),
+    [contentAcquisitionResult]
+  );
 
   const quickQuizHref = useMemo(() => {
     if (!selectedContent?._id || !quickQuizItems.length) {
@@ -147,6 +171,16 @@ function ContentPage() {
       setContentView(view);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    setContentAcquisitionForm((previous) => ({
+      ...previous,
+      language: previous.language || user?.language || 'Japanese',
+      level: previous.level || user?.level || 'beginner',
+      preferredTopics: previous.preferredTopics || user?.preferredTopics?.join(', ') || '',
+      preferredRegister: previous.preferredRegister || user?.preferredRegister?.join(', ') || ''
+    }));
+  }, [user?.language, user?.level, user?.preferredRegister, user?.preferredTopics]);
 
   useEffect(() => {
     if (contentIdParam) {
@@ -192,6 +226,40 @@ function ContentPage() {
     loadPageData();
   }, [contentQuery, contentView, user?.language]);
 
+  const loadRecommendations = async ({ silent = false } = {}) => {
+    try {
+      if (!silent) {
+        setIsLoadingRecommendations(true);
+      }
+      setHasRecommendationError(false);
+
+      const { data } = await getRecommendedLearningContent({
+        language: user?.language || 'Japanese',
+        limit: 4
+      });
+      const normalized = normalizeRecommendationResponse(data);
+
+      setRecommendedContent(normalized.items);
+      setRecommendationMeta(normalized.meta);
+
+      if (import.meta.env.DEV) {
+        console.debug('Content recommendations loaded', {
+          itemCount: normalized.items.length,
+          meta: normalized.meta
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load recommended content:', error);
+      setRecommendedContent([]);
+      setRecommendationMeta(null);
+      setHasRecommendationError(true);
+    } finally {
+      if (!silent) {
+        setIsLoadingRecommendations(false);
+      }
+    }
+  };
+
   useEffect(() => {
     if (contentView !== 'community') {
       setIsLoadingRecommendations(false);
@@ -202,7 +270,7 @@ function ContentPage() {
 
     let cancelled = false;
 
-    const loadRecommendations = async () => {
+    (async () => {
       try {
         setIsLoadingRecommendations(true);
         setHasRecommendationError(false);
@@ -219,13 +287,6 @@ function ContentPage() {
 
         setRecommendedContent(normalized.items);
         setRecommendationMeta(normalized.meta);
-
-        if (import.meta.env.DEV) {
-          console.debug('Content recommendations loaded', {
-            itemCount: normalized.items.length,
-            meta: normalized.meta
-          });
-        }
       } catch (error) {
         console.error('Failed to load recommended content:', error);
 
@@ -241,9 +302,7 @@ function ContentPage() {
           setIsLoadingRecommendations(false);
         }
       }
-    };
-
-    loadRecommendations();
+    })();
 
     return () => {
       cancelled = true;
@@ -387,6 +446,11 @@ function ContentPage() {
     setContentForm((previous) => ({ ...previous, [name]: value }));
   };
 
+  const handleContentAcquisitionChange = (event) => {
+    const { name, value } = event.target;
+    setContentAcquisitionForm((previous) => ({ ...previous, [name]: value }));
+  };
+
   const handleCreateContent = async (event) => {
     event.preventDefault();
 
@@ -524,6 +588,44 @@ function ContentPage() {
     }
   };
 
+  const handleFindContent = async (event) => {
+    event.preventDefault();
+
+    if (!contentAcquisitionForm.studyQuery.trim()) {
+      setContentAcquisitionError('Tell Lingua what kind of content you want to study.');
+      return;
+    }
+
+    try {
+      setIsFindingContent(true);
+      setContentAcquisitionError('');
+      setContentAcquisitionResult(null);
+      setMessage('');
+
+      const payload = buildContentAcquisitionPayload({
+        formState: contentAcquisitionForm,
+        user
+      });
+      const { data } = await sourceAndPromoteYoutubeContent(payload);
+      const firstReadyItem = (data.candidates || []).find((candidate) => candidate.recommendationEligible && candidate.contentId);
+      const firstAddedItem = (data.candidates || []).find((candidate) => candidate.contentId);
+      const preferredContentId = firstReadyItem?.contentId || firstAddedItem?.contentId || '';
+
+      setContentAcquisitionResult(data);
+      await refreshContent(preferredContentId, 'community');
+      await loadRecommendations({ silent: true });
+      if (preferredContentId) {
+        setContentView('community');
+        setSelectedContentId(preferredContentId);
+      }
+    } catch (error) {
+      console.error('Failed to source and promote content:', error);
+      setContentAcquisitionError(error.response?.data?.message || 'Couldn’t source content right now.');
+    } finally {
+      setIsFindingContent(false);
+    }
+  };
+
   return (
     <section className="page-section">
       <PageIntro
@@ -629,6 +731,125 @@ function ContentPage() {
                     <p className="muted-text">No recommendations yet. Browse the library below.</p>
                   </div>
                 )}
+
+                <DisclosurePanel
+                  key={`content-find-${contentAcquisitionResult ? 'result' : 'idle'}-${contentAcquisitionError ? 'error' : 'ok'}-${isFindingContent ? 'loading' : 'ready'}`}
+                  title="Find content"
+                  description="Bring in content based on what you want to study."
+                  defaultOpen={Boolean(contentAcquisitionResult || contentAcquisitionError)}
+                  className="content-acquisition-disclosure"
+                >
+                  <form className="content-acquisition-form" onSubmit={handleFindContent}>
+                    <label>
+                      Tell Lingua what kind of content you want
+                      <input
+                        name="studyQuery"
+                        value={contentAcquisitionForm.studyQuery}
+                        onChange={handleContentAcquisitionChange}
+                        placeholder="beginner Japanese listening"
+                        disabled={isFindingContent}
+                      />
+                    </label>
+                    <div className="filter-grid">
+                      <label>
+                        Language
+                        <input name="language" value={contentAcquisitionForm.language} onChange={handleContentAcquisitionChange} disabled={isFindingContent} />
+                      </label>
+                      <label>
+                        Level
+                        <select name="level" value={contentAcquisitionForm.level} onChange={handleContentAcquisitionChange} disabled={isFindingContent}>
+                          <option value="">Use my profile</option>
+                          <option value="beginner">Beginner</option>
+                          <option value="intermediate">Intermediate</option>
+                          <option value="advanced">Advanced</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="filter-grid">
+                      <label>
+                        Topics
+                        <input
+                          name="preferredTopics"
+                          value={contentAcquisitionForm.preferredTopics}
+                          onChange={handleContentAcquisitionChange}
+                          placeholder="travel, daily_conversation"
+                          disabled={isFindingContent}
+                        />
+                      </label>
+                      <label>
+                        Register
+                        <input
+                          name="preferredRegister"
+                          value={contentAcquisitionForm.preferredRegister}
+                          onChange={handleContentAcquisitionChange}
+                          placeholder="casual, polite"
+                          disabled={isFindingContent}
+                        />
+                      </label>
+                    </div>
+                    <div className="content-acquisition-actions">
+                      <button type="submit" className="secondary-button" disabled={isFindingContent || !contentAcquisitionForm.studyQuery.trim()}>
+                        {isFindingContent ? 'Finding content...' : 'Find content'}
+                      </button>
+                      <p className="muted-text content-acquisition-hint">
+                        {isFindingContent ? 'Checking transcripts and learning readiness...' : 'Examples: casual Japanese travel phrases, polite daily conversation in Japanese'}
+                      </p>
+                    </div>
+                  </form>
+
+                  {contentAcquisitionError ? (
+                    <div className="empty-state compact-empty-state content-acquisition-feedback">
+                      <h4>Couldn’t source content right now</h4>
+                      <p className="muted-text">{contentAcquisitionError}</p>
+                    </div>
+                  ) : null}
+
+                  {contentAcquisitionSummary ? (
+                    <div className={`card content-acquisition-summary content-acquisition-summary--${contentAcquisitionSummary.tone}`}>
+                      <div className="content-acquisition-summary-copy">
+                        <h4>{contentAcquisitionSummary.title}</h4>
+                        <p className="muted-text">{contentAcquisitionSummary.summary}</p>
+                      </div>
+                      <div className="mapped-column-tags content-acquisition-facts">
+                        {contentAcquisitionSummary.facts.map((fact) => (
+                          <span key={fact} className="mapped-column-tag">
+                            {fact}
+                          </span>
+                        ))}
+                      </div>
+                      {contentAcquisitionSummary.suggestion ? <p className="muted-text">{contentAcquisitionSummary.suggestion}</p> : null}
+
+                      <DisclosurePanel
+                        title="See what was checked"
+                        description="A quick view of ready items and content that still needs work."
+                        className="content-acquisition-result-details"
+                      >
+                        <div className="content-acquisition-result-list">
+                          {(contentAcquisitionResult.candidates || []).map((candidate) => (
+                            <div key={`${candidate.contentId || candidate.youtubeId}-${candidate.title}`} className="content-acquisition-result-row">
+                              <div>
+                                <strong>{candidate.title || 'Untitled source'}</strong>
+                                <p className="muted-text">
+                                  {candidate.recommendationEligible
+                                    ? 'Ready to practice now'
+                                    : candidate.contentId
+                                      ? 'Added, but not ready yet'
+                                      : 'Not added'}
+                                </p>
+                              </div>
+                              <div className="mapped-column-tags">
+                                <span className="mapped-column-tag">
+                                  {candidate.recommendationEligible ? 'Ready now' : candidate.contentId ? 'Needs more work' : 'No match'}
+                                </span>
+                                {candidate.persistenceStatus ? <span className="mapped-column-tag">{candidate.persistenceStatus === 'created' ? 'Added' : 'Rechecked'}</span> : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </DisclosurePanel>
+                    </div>
+                  ) : null}
+                </DisclosurePanel>
               </div>
             ) : null}
 

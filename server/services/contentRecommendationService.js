@@ -98,11 +98,22 @@ const getDiversityKey = (item) =>
 
 const isSafeTrustLevel = (item) => !UNSAFE_TRUST_LEVELS.has(normalizeLower(item.trustLevel));
 
+const hasLegacyRecommendationFallback = (item) =>
+  item &&
+  (item.recommendationEligible === undefined || item.recommendationEligible === null) &&
+  [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL].includes(item.visibility) &&
+  item.workspaceType !== 'study_copy' &&
+  item.contentType === 'youtube' &&
+  (item.isCurated || item.isSystemContent) &&
+  isSafeTrustLevel(item);
+
+const isRecommendationEligibleItem = (item) => item?.recommendationEligible === true || hasLegacyRecommendationFallback(item);
+
 const isPubliclyRecommendable = (item) =>
   item &&
   [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL].includes(item.visibility) &&
   item.workspaceType !== 'study_copy' &&
-  item.recommendationEligible === true &&
+  isRecommendationEligibleItem(item) &&
   isSafeTrustLevel(item);
 
 const isContentUsable = (item) => {
@@ -121,6 +132,99 @@ const isContentUsable = (item) => {
     item.isSystemContent;
 
   return hasPlayableSource && hasPracticeReadiness;
+};
+
+const createRecommendationDiagnostics = ({ items, language }) => {
+  const diagnostics = {
+    inventory: {
+      totalFetched: items.length,
+      languageMatched: 0,
+      publiclyRecommendable: 0,
+      usable: 0
+    },
+    excluded: {
+      languageMismatch: 0,
+      workspaceCopy: 0,
+      explicitIneligible: 0,
+      unsafeTrustLevel: 0,
+      missingPlayableSource: 0,
+      missingPracticeReadiness: 0
+    },
+    requestedLanguage: resolveLanguage(language) || normalizeText(language),
+    emptyReason: null
+  };
+  const languageMatch = buildLanguageMatch(language);
+  const languageMatchedItems = items.filter((item) => {
+    if (!languageMatch) {
+      return true;
+    }
+
+    return languageMatch.$in
+      ? languageMatch.$in.includes(resolveLanguage(item.language) || normalizeText(item.language))
+      : resolveLanguage(item.language) === languageMatch;
+  });
+  diagnostics.excluded.languageMismatch = Math.max(0, items.length - languageMatchedItems.length);
+  diagnostics.inventory.languageMatched = languageMatchedItems.length;
+
+  const publiclyRecommendableItems = languageMatchedItems.filter((item) => {
+    if (item.workspaceType === 'study_copy') {
+      diagnostics.excluded.workspaceCopy += 1;
+      return false;
+    }
+
+    if (item.recommendationEligible === false) {
+      diagnostics.excluded.explicitIneligible += 1;
+      return false;
+    }
+
+    if (!isSafeTrustLevel(item)) {
+      diagnostics.excluded.unsafeTrustLevel += 1;
+      return false;
+    }
+
+    return isPubliclyRecommendable(item);
+  });
+  diagnostics.inventory.publiclyRecommendable = publiclyRecommendableItems.length;
+
+  const usableItems = publiclyRecommendableItems.filter((item) => {
+    const transcriptStatus = normalizeLower(item.transcriptStatus);
+    const linkedCount = Number(item.linkedVocabularyIds?.length || 0) + Number(item.linkedSentenceIds?.length || 0);
+    const hasPlayableSource = Boolean(normalizeText(item.embedUrl || item.sourceUrl || item.url || item.sourceId));
+    const hasPracticeReadiness =
+      READY_TRANSCRIPT_STATUSES.has(transcriptStatus) ||
+      Boolean(item.transcriptAvailable) ||
+      linkedCount > 0 ||
+      item.isCurated ||
+      item.isSystemContent;
+
+    if (!hasPlayableSource) {
+      diagnostics.excluded.missingPlayableSource += 1;
+      return false;
+    }
+
+    if (!hasPracticeReadiness) {
+      diagnostics.excluded.missingPracticeReadiness += 1;
+      return false;
+    }
+
+    return true;
+  });
+  diagnostics.inventory.usable = usableItems.length;
+
+  if (items.length === 0) {
+    diagnostics.emptyReason = 'no_public_content_inventory';
+  } else if (languageMatchedItems.length === 0) {
+    diagnostics.emptyReason = 'no_language_matched_content';
+  } else if (publiclyRecommendableItems.length === 0) {
+    diagnostics.emptyReason = 'no_publicly_recommendable_content';
+  } else if (usableItems.length === 0) {
+    diagnostics.emptyReason = 'no_usable_content_after_readiness_filters';
+  }
+
+  return {
+    diagnostics,
+    usableItems
+  };
 };
 
 const buildTierBuckets = ({ items, user, coldStart }) => {
@@ -446,21 +550,15 @@ const applyDeterministicDiversity = (rankedItems, limit) => {
 
 const fetchCandidateContent = async ({ LearningContentModel, language }) => {
   const filter = {
-    visibility: { $in: [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL] },
-    recommendationEligible: true
+    visibility: { $in: [CONTENT_VISIBILITY.COMMUNITY, CONTENT_VISIBILITY.GLOBAL] }
   };
-  const languageMatch = buildLanguageMatch(language);
-
-  if (languageMatch) {
-    filter.language = languageMatch;
-  }
 
   const items = await LearningContentModel.find(filter)
     .populate({ path: 'createdBy', select: 'username language level goals' })
     .sort({ isSystemContent: -1, isCurated: -1, createdAt: -1, title: 1, sourceId: 1 })
     .limit(MAX_CANDIDATE_SCAN);
 
-  return items.filter(isContentUsable);
+  return createRecommendationDiagnostics({ items, language });
 };
 
 const buildPracticedContentMap = async ({ StudySessionModel, userId, candidateIds }) => {
@@ -511,7 +609,7 @@ const createContentRecommendationService = ({
       }
     }
 
-    const usableCandidates = await fetchCandidateContent({
+    const { usableItems: usableCandidates, diagnostics } = await fetchCandidateContent({
       LearningContentModel,
       language
     });
@@ -583,7 +681,16 @@ const createContentRecommendationService = ({
         source: 'server_recommendation',
         isColdStart: coldStart,
         fallbackTierUsed: tierBucket.tier,
-        totalCandidatesConsidered: candidatesToRank.length
+        totalCandidatesConsidered: candidatesToRank.length,
+        ...(parsedQuery.debug
+          ? {
+              debug: {
+                ...diagnostics,
+                rankedCandidateCount: rankedItems.length,
+                diversifiedCount: diversifiedItems.length
+              }
+            }
+          : {})
       }
     };
   };
@@ -603,8 +710,11 @@ module.exports = {
     buildLanguageMatch,
     buildTierBuckets,
     createContentRecommendationService,
+    createRecommendationDiagnostics,
+    hasLegacyRecommendationFallback,
     isColdStartUser,
     isContentUsable,
+    isRecommendationEligibleItem,
     parseRecommendationQuery,
     scoreContentItem
   }
