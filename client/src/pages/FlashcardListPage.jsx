@@ -10,7 +10,7 @@ import {
   getOfficialBeginnerDecks,
   removeDuplicateWords,
   resetFlashcardProficiency
-} from '../services/flashcardService';
+} from '../services/apiService';
 import PageIntro from '../components/PageIntro';
 
 const initialFilters = {

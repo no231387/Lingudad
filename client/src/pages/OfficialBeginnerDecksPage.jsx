@@ -5,7 +5,7 @@ import {
   getOfficialBeginnerDeckFlashcards,
   getOfficialBeginnerDecks,
   updateOfficialBeginnerDeck
-} from '../services/flashcardService';
+} from '../services/apiService';
 import PageIntro from '../components/PageIntro';
 
 const initialFormData = {

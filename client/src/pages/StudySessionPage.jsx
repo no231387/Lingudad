@@ -10,7 +10,7 @@ import {
   recordFlashcardStudyFeedback,
   reviewFlashcard,
   shapeStudySessionFlashcards
-} from '../services/flashcardService';
+} from '../services/apiService';
 import DisclosurePanel from '../components/DisclosurePanel';
 import PageIntro from '../components/PageIntro';
 import { useAuth } from '../context/AuthContext';

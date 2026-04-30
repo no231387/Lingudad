@@ -7,7 +7,7 @@ import {
   registerUser,
   setAuthToken,
   updateCurrentUser
-} from '../services/flashcardService';
+} from '../services/apiService';
 
 const AuthContext = createContext(null);
 

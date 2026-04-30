@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageIntro from '../components/PageIntro';
-import { getDashboardOverview } from '../services/flashcardService';
+import { getDashboardOverview } from '../services/apiService';
 import { normalizeRecommendationItems } from '../utils/recommendationResponse';
 
 const createDefaultOverview = () => ({
