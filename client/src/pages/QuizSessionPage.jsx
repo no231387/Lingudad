@@ -8,7 +8,7 @@ import {
   getRecentQuizSessions,
   launchQuizSession,
   submitQuizAnswer
-} from '../services/flashcardService';
+} from '../services/apiService';
 
 const QUIZ_TYPE_COPY = Object.freeze({
   meaning_recall: {

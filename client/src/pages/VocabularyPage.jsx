@@ -7,7 +7,7 @@ import {
   getLearningPresets,
   getRecommendedVocabulary,
   searchVocabulary
-} from '../services/flashcardService';
+} from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
 
 const TUTORIAL_STORAGE_KEY = 'lingua_vocabulary_tutorial_dismissed';

@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
-import { clearDashboardOverviewCache, getDashboardOverview } from './services/flashcardService';
+import { clearDashboardOverviewCache, getDashboardOverview } from './services/apiService';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SentencesPage = lazy(() => import('./pages/SentencesPage'));

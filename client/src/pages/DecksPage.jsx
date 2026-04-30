@@ -9,7 +9,7 @@ import {
   importDeckToOfficialBeginnerDeck,
   resetDeckProficiency,
   updateDeck
-} from '../services/flashcardService';
+} from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
 import PageIntro from '../components/PageIntro';
 

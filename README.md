@@ -120,9 +120,17 @@ Notes:
 - The frontend is built into `client/dist` during the Docker build.
 - The Express server serves the SPA in production and exposes `/api/health`.
 - Because frontend and backend share one origin in production, `CORS_ORIGINS` can usually just be your DigitalOcean app URL or custom domain.
-- `npm run seed:system` seeds required global system presets and starter content into the configured MongoDB.
-- `npm run seed:system` is safe to rerun for local or remote MongoDB because both underlying seeds are idempotent.
-- `npm run deploy:prepare` is a small helper alias for the same system seed step when you want a deployment-oriented command name.
+- `npm run seed:system` seeds required global system presets into the configured MongoDB. It is idempotent and safe to rerun.
+- `npm run seed:starter-content` optionally seeds starter learning content (run separately if needed).
+- `npm run deploy:prepare` is a helper alias for `seed:system`.
+
+## Docker images
+
+| Dockerfile | Purpose | Usage |
+|------------|---------|-------|
+| `./Dockerfile` | **Primary production image** — multi-stage build that compiles the React client and bundles it with the Express server. Serves everything on port 8080. | DigitalOcean App Platform and local production testing |
+| `./server/Dockerfile` | Standalone server container on port 5000. Used with `docker-compose.yml` alongside a separate client container. | Docker Compose stack |
+| `./client/Dockerfile` | Standalone client container via nginx on port 80. Used with `docker-compose.yml`. | Docker Compose stack |
 
 ## Docker deployment
 
@@ -156,4 +164,4 @@ cd server
 npm run deploy:prepare
 ```
 
-This prepares a fresh remote MongoDB with the required system presets and starter/global content. It is safe to rerun during later releases when you need seeded records updated in place.
+This seeds required system presets into the target MongoDB. It is idempotent and safe to rerun during later releases. For starter learning content, also run `npm run seed:starter-content`.

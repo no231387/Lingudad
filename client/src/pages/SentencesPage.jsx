@@ -7,7 +7,7 @@ import {
   getLearningPresets,
   getRecommendedSentences,
   searchSentences
-} from '../services/flashcardService';
+} from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
 
 const TUTORIAL_STORAGE_KEY = 'lingua_sentences_tutorial_dismissed';

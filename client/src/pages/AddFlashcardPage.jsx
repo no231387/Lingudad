@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FlashcardForm from '../components/FlashcardForm';
-import { createFlashcard, getDecks, getOfficialBeginnerDecks } from '../services/flashcardService';
+import { createFlashcard, getDecks, getOfficialBeginnerDecks } from '../services/apiService';
 import PageIntro from '../components/PageIntro';
 
 function AddFlashcardPage() {

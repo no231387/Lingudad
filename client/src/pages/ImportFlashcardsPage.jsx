@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { bulkImportFlashcards, getDecks } from '../services/flashcardService';
+import { bulkImportFlashcards, getDecks } from '../services/apiService';
 import {
   buildSampleCsv,
   createEmptyMapping,

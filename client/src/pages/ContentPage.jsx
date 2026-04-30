@@ -20,7 +20,7 @@ import {
   saveContentTranscriptSegments,
   saveLearningContent,
   unsaveLearningContent
-} from '../services/flashcardService';
+} from '../services/apiService';
 import { useAuth } from '../context/AuthContext';
 
 const initialContentForm = {
